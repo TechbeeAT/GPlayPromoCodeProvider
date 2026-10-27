@@ -61,6 +61,7 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Which code is handed out | The user picks a batch (app, description, expiry date); any available code of that batch is handed out. |
 | Deployment | One Docker image (Ktor server also serves the web app), deployable to [Fly.io](https://fly.io). |
 | Language | English only. |
+| Build JDK | Java 21, any vendor (Gradle daemon criteria). Not pinned to Azul so cloud AI sessions can use the preinstalled OpenJDK. |
 
 ---
 
@@ -105,6 +106,9 @@ Server: *coming soon.*
 - Wasm target: `./gradlew :shared:wasmJsTest`
 - JS target: `./gradlew :shared:jsTest`
 
+The browser tests need Chrome or Chromium (Karma uses `CHROME_BIN` if set). Claude Code cloud sessions are
+prepared automatically by a SessionStart hook, see [CLAUDE.md](./CLAUDE.md#cloud-session-setup).
+
 ## Deployment
 
 *Coming soon.* The plan is a single Docker image containing the Ktor server and the compiled web app,
@@ -119,7 +123,7 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 
 1. ✅ Specification: README and CLAUDE.md
 2. ✅ Resolve the open questions
-3. [#2](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/2) Development setup: SessionStart hook so cloud AI sessions can build and test
+3. ✅ [#2](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/2) Development setup: SessionStart hook so cloud AI sessions can build and test
 4. [#3](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/3) `server` module (Ktor) with SQLite persistence and the REST API, plus tests
 5. [#4](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/4) Shared API models, API client in the web app
 6. [#5](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/5) User UI: invite link page, batch list, request a code, copy and redeem
