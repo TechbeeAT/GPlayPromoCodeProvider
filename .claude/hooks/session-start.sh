@@ -23,9 +23,11 @@ if ! command -v java >/dev/null 2>&1 || [ "$(java_major)" != "21" ]; then
 fi
 
 # 2. GitHub-hosted npm packages. Kotlin/JS pins a fork of karma (the browser test runner) as a
-# GitHub tarball. The cloud network policy blocks codeload.github.com, but git access to github.com
-# works. So we build those tarballs with git and put them in a Yarn offline mirror, where Yarn
-# looks before downloading. The lockfile has no integrity hash for these entries.
+# GitHub tarball. Cloud sessions can only download tarballs from codeload.github.com for the
+# repositories attached to the session (even with the domain allowed, others get 403), but cloning
+# public repositories with git works. So we build those tarballs with git and put them in a Yarn
+# offline mirror, where Yarn looks before downloading. The lockfile has no integrity hash for
+# these entries.
 mirror_dir="$HOME/.cache/yarn-offline-mirror"
 mkdir -p "$mirror_dir"
 if ! grep -qs "yarn-offline-mirror" "$HOME/.yarnrc"; then

@@ -65,10 +65,12 @@ session starts once it is done. The steps:
    daemon needs Java 21 of any vendor (`gradle/gradle-daemon-jvm.properties`). The vendor was
    previously pinned to Azul, but the cloud network policy blocks `cdn.azul.com`.
 2. **Karma from GitHub**: Kotlin/JS pins a fork of karma (the browser test runner) as a GitHub
-   tarball (`codeload.github.com`, blocked by the network policy). The hook fetches that commit with
-   git and puts a `git archive` of it into a Yarn offline mirror (`~/.cache/yarn-offline-mirror`,
-   configured in `~/.yarnrc`), where Yarn looks first. Every `codeload.github.com` URL in
-   `kotlin-js-store/**/yarn.lock` is handled this way.
+   tarball from `codeload.github.com`. Cloud sessions can only download such tarballs for the
+   repositories attached to the session; for others GitHub access answers 403, even when the domain
+   is in the environment's allowed domains. Cloning public repositories with git works, so the hook
+   fetches that commit with git and puts a `git archive` of it into a Yarn offline mirror
+   (`~/.cache/yarn-offline-mirror`, configured in `~/.yarnrc`), where Yarn looks first. Every
+   `codeload.github.com` URL in `kotlin-js-store/**/yarn.lock` is handled this way.
 3. **Headless Chrome**: points `CHROME_BIN` (also exported for the session through
    `CLAUDE_ENV_FILE`) to a wrapper around the image's Playwright Chromium that adds `--no-sandbox`,
    because sessions run as root.
