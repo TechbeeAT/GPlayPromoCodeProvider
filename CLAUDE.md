@@ -7,14 +7,17 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
 GPlay Promo Code Provider is a web platform for handing out Google Play promo codes to users, mainly
 beta testers. It works for any app.
 
-- **Admins** upload batches of promo codes. Each batch has an app, an optional description, an
-  expiration date and the list of codes.
-- **Users** open the platform, pick an app and request a code. A user may request several codes.
+- **Admins** (one account, configured through environment variables) upload batches of promo codes.
+  Each batch has an app, an optional description, an expiration date and the list of codes (pasted
+  into a text field, one per line).
+- **Users** open an app's secret invite link, see that app's batches (app, description, expiry date),
+  pick one and request a code. There are no user accounts and no per-user limits; a user may request
+  as many codes as they like.
 - Each handed-out code is marked **consumed** right away. Whether it is actually redeemed on Google
   Play is out of scope.
 
-The full specification, roadmap and open questions are in [README.md](./README.md). Keep the README in
-sync when a requirement changes or an open question is decided.
+The full specification, decisions and roadmap are in [README.md](./README.md). Keep the README in
+sync when a requirement changes or a new decision is made.
 
 The project is built step by step and also serves as a showcase for AI-assisted development. Work in
 small, reviewable increments, and point out possible improvements to the owner instead of silently
@@ -24,7 +27,10 @@ deciding them.
 
 - **Kotlin Multiplatform**, Kotlin version in `gradle/libs.versions.toml`
 - **Compose Multiplatform for Web**: Wasm target (primary) and JS target (fallback)
-- **Ktor** for the server (Kotlin/JVM), planned as module `server`
+- **Ktor** for the server (Kotlin/JVM), planned as module `server`. It also serves the compiled web app.
+- **SQLite** for persistence
+- **Docker** image as the single deployable, deployed to **Fly.io** (SQLite file on a Fly volume)
+- UI language: English only (no i18n needed)
 - Gradle with Kotlin DSL and a version catalog (`gradle/libs.versions.toml`)
 - Package: `at.techbee.gplaypromocodeprovider`
 
@@ -34,7 +40,7 @@ deciding them.
 |--------|---------|
 | `shared` | Compose UI, view models, and later the `@Serializable` DTOs shared with the server. Targets: `js`, `wasmJs` (a `jvm` target is added when the server needs the DTOs). |
 | `webApp` | Web entry point (`main.kt` → `ComposeViewport { App() }`), `index.html`, CSS. |
-| `server` | *(planned)* Ktor REST API, persistence and admin authentication. |
+| `server` | *(planned)* Ktor REST API, SQLite persistence, admin authentication, serving the web app. |
 
 ## Commands
 
@@ -56,7 +62,11 @@ Update this list when the server module and its tasks are added.
 3. Codes are unique per app. Uploading a duplicate code is rejected or skipped and reported back to
    the admin; it is never silently duplicated.
 4. The client never gets bulk access to codes. A user only ever receives the single code they requested.
-5. Admin endpoints require authentication. Promo codes are secrets: never log them in full.
+5. User endpoints are scoped by the app's invite token. An unknown token reveals nothing (not even
+   whether an app exists), and there is no public list of apps.
+6. Admin endpoints require authentication. Admin credentials come from environment variables, never
+   from the repository. Promo codes and invite tokens are secrets: never log them in full.
+7. Uploaded codes are parsed one per line; whitespace is trimmed and blank lines are ignored.
 
 ## Conventions
 
@@ -75,3 +85,5 @@ Update this list when the server module and its tasks are added.
 - When something in the spec is ambiguous, ask instead of assuming. Record decisions in the README.
 - Suggest improvements (architecture, security, UX, tooling) when you see them; the owner wants to
   learn from this project.
+- The owner is new to Docker and Fly.io. When working on packaging and deployment, explain each
+  step (Dockerfile stages, image contents, `fly.toml`, volumes, secrets) rather than only producing files.

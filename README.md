@@ -3,9 +3,9 @@
 A self-hosted web platform for handing out **Google Play promo codes** to users, especially beta testers,
 without sending them one by one over chat or email.
 
-Admins upload batches of promo codes for an app. Users open the platform, pick the app and request a code.
-The platform hands out an unused code and marks it as consumed. It works for **any** app: nothing is tied
-to a specific product.
+Admins upload batches of promo codes for an app and share the app's invite link. Users open the link,
+pick one of the available batches and request a code. The platform hands out an unused code from that
+batch and marks it as consumed. It works for **any** app: nothing is tied to a specific product.
 
 > **Status:** Early stage. This README describes the target specification; the implementation is being
 > built step by step. The project is also a showcase for AI-assisted development (see [CLAUDE.md](./CLAUDE.md)).
@@ -15,19 +15,25 @@ to a specific product.
 ## Features
 
 ### For users
-- See the apps that currently have promo codes available.
-- Request a promo code for an app with one click.
-- Request more than one code (e.g. for several devices or accounts).
+- Open the **invite link** of an app (e.g. `https://<host>/invite/<token>`). There is no public list
+  of apps, and users don't need an account.
+- See the batches of that app that still have codes available, each with the app name, the batch
+  description and the expiration date.
+- Pick a batch and request a code with one click.
+- Request more codes whenever needed (e.g. for several devices or accounts). There is no per-user limit.
 - Copy the code, or open Google Play's redeem page directly
   (`https://play.google.com/redeem?code=<CODE>`).
 
 ### For admins
+- Log in with the single admin account configured on the server.
 - Manage apps (name, optional Google Play package name, optional description).
+- Get each app's invite link, and regenerate it to revoke the old one.
 - Upload a **batch** of promo codes with:
   - the app the codes belong to,
   - an optional description (e.g. "Beta wave 2", "Black Friday"),
   - the expiration date of the codes,
-  - the list of codes.
+  - the codes, pasted into a text field, one code per line. Many codes can be pasted at once.
+    Surrounding whitespace is trimmed and blank lines are ignored.
 - See how many codes are available, consumed and expired, per app and per batch.
 
 ### Code lifecycle
@@ -41,7 +47,20 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 - A code is marked **consumed** as soon as it is handed out. Whether it is actually redeemed on
   Google Play is not tracked and doesn't matter.
 - A code is handed out to exactly one request. Two parallel requests must never get the same code.
-- Expired codes are never handed out.
+- Expired codes are never handed out, and batches without available codes are not shown to users.
+
+### Decisions
+
+| Topic | Decision |
+|-------|----------|
+| User access | One secret invite link per app. No user accounts. |
+| Request limits | None. Users are not tracked; abuse is unlikely and its impact is low. |
+| Admin authentication | One admin account, configured through environment variables. |
+| Database | SQLite (one file, stored on a persistent volume in production). |
+| Code upload | Text field, one code per line, multiple codes at once. CSV import may come later. |
+| Which code is handed out | The user picks a batch (app, description, expiry date); any available code of that batch is handed out. |
+| Deployment | One Docker image (Ktor server also serves the web app), deployable to [Fly.io](https://fly.io). |
+| Language | English only. |
 
 ---
 
@@ -50,15 +69,16 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Part | Technology | Module |
 |------|------------|--------|
 | Web UI | [Compose Multiplatform](https://kotlinlang.org/compose-multiplatform/) for Web (Wasm, with a JS fallback) | `webApp`, `shared` |
-| Server / REST API | [Ktor](https://ktor.io/) (Kotlin/JVM) | `server` *(planned)* |
+| Server / REST API | [Ktor](https://ktor.io/) (Kotlin/JVM), also serves the compiled web app | `server` *(planned)* |
 | Shared models | Kotlin Multiplatform (`commonMain`), `kotlinx.serialization` DTOs used by both client and server | `shared` |
-| Persistence | Relational database, accessed by the server only | *(to be decided)* |
+| Persistence | SQLite, accessed by the server only | `server` |
+| Packaging | Docker image, deployed to Fly.io with a volume for the SQLite file | *(planned)* |
 
 ### Domain model (draft)
 
-- **App**: `id`, `name`, `packageName?`, `description?`
+- **App**: `id`, `name`, `packageName?`, `description?`, `inviteToken` (unique, random, regenerable)
 - **CodeBatch**: `id`, `appId`, `description?`, `expiresAt`, `createdAt`
-- **PromoCode**: `id`, `batchId`, `code` (unique), `status` (`AVAILABLE` / `CONSUMED`), `consumedAt?`
+- **PromoCode**: `id`, `batchId`, `code` (unique per app), `status` (`AVAILABLE` / `CONSUMED`), `consumedAt?`
 
 ---
 
@@ -85,34 +105,24 @@ Server: *coming soon.*
 - Wasm target: `./gradlew :shared:wasmJsTest`
 - JS target: `./gradlew :shared:jsTest`
 
+## Deployment
+
+*Coming soon.* The plan is a single Docker image containing the Ktor server and the compiled web app,
+plus a step-by-step guide for deploying it to Fly.io (including a persistent volume for the SQLite
+database and setting the admin credentials as secrets).
+
 ---
 
 ## Roadmap
 
 1. ✅ Specification: README and CLAUDE.md
-2. Resolve the open questions below
-3. Add the `server` module (Ktor) with persistence and the REST API, plus tests
-4. Shared DTOs in `shared`, API client in the web app
-5. User UI: app list, request a code, copy and redeem
-6. Admin UI: manage apps, upload batches, statistics
-7. Authentication and abuse protection
-8. Packaging and deployment (e.g. Docker) and CI
-
-## Open questions
-
-These need a decision before or during implementation:
-
-1. **User access:** Who may request codes? Anonymous visitors, users with a per-app invite link or
-   token, or signed-in users (e.g. Google Sign-In)?
-2. **Request limits:** Is "multiple codes per user" unlimited, or should there be a limit or cooldown
-   per user and app?
-3. **Admin authentication:** One admin configured through the environment, or several admin accounts?
-4. **Database:** SQLite (simple, one file) or PostgreSQL (more robust for hosting)?
-5. **Code upload format:** Paste codes one per line, upload the CSV exported from the Play Console, or both?
-6. **Handout order:** Hand out the codes that expire soonest first?
-7. **Deployment:** Should the Ktor server also serve the compiled web app (one deployable), and where
-   will it be hosted?
-8. **Language:** English only, or also German (i18n)?
+2. ✅ Resolve the open questions
+3. Development setup: SessionStart hook so cloud AI sessions can build and test
+4. `server` module (Ktor) with SQLite persistence and the REST API, plus tests
+5. Shared DTOs in `shared`, API client in the web app
+6. User UI: invite link page, batch list, request a code, copy and redeem
+7. Admin UI: login, manage apps and invite links, upload batches, statistics
+8. Packaging as a Docker image and deployment to Fly.io, plus CI
 
 ---
 
