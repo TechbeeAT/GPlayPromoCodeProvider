@@ -12,11 +12,13 @@ fi
 
 cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}"
 
-# 1. JDK 21 (runs the Gradle daemon, see gradle/gradle-daemon-jvm.properties).
+# 1. JDK 21 (runs the Gradle daemon, see gradle/gradle-daemon-jvm.properties). Gradle also finds
+# JDKs under /usr/lib/jvm, so one there is enough even if `java` on PATH is another version.
 java_major() {
   java -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | head -n 1
 }
-if ! command -v java >/dev/null 2>&1 || [ "$(java_major)" != "21" ]; then
+if ! { command -v java >/dev/null 2>&1 && [ "$(java_major)" = "21" ]; } &&
+  ! compgen -G '/usr/lib/jvm/*21*/bin/java' >/dev/null; then
   echo "Installing OpenJDK 21..." >&2
   apt-get update -qq >&2
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-21-jdk-headless >&2
@@ -27,24 +29,42 @@ fi
 # repositories attached to the session (even with the domain allowed, others get 403), but cloning
 # public repositories with git works. So we build those tarballs with git and put them in a Yarn
 # offline mirror, where Yarn looks before downloading. The lockfile has no integrity hash for
-# these entries.
+# these entries. A failure here only prints a warning; Yarn then tries the download itself.
 mirror_dir="$HOME/.cache/yarn-offline-mirror"
 mkdir -p "$mirror_dir"
 if ! grep -qs "yarn-offline-mirror" "$HOME/.yarnrc"; then
+  if [ -s "$HOME/.yarnrc" ] && [ -n "$(tail -c 1 "$HOME/.yarnrc")" ]; then
+    echo >> "$HOME/.yarnrc"
+  fi
   echo "yarn-offline-mirror \"$mirror_dir\"" >> "$HOME/.yarnrc"
 fi
-grep -ho 'https://codeload.github.com/[^"]*/tar.gz/[0-9a-f]*' kotlin-js-store/yarn.lock kotlin-js-store/*/yarn.lock 2>/dev/null |
-  sort -u |
-  while IFS=/ read -r _ _ _ owner repo _ sha; do
-    [ -s "$mirror_dir/$sha" ] && continue
-    echo "Packing $owner/$repo@$sha for the Yarn offline mirror..." >&2
-    tmp="$(mktemp -d)"
-    git -C "$tmp" init -q
-    git -C "$tmp" fetch -q --depth 1 "https://github.com/$owner/$repo.git" "$sha"
-    git -C "$tmp" archive --format=tar.gz --prefix="$repo-$sha/" -o "$mirror_dir/$sha.tmp" FETCH_HEAD
+
+pack_github_tarball() {
+  local owner="$1" repo="$2" sha="$3" tmp
+  echo "Packing $owner/$repo@$sha for the Yarn offline mirror..." >&2
+  tmp="$(mktemp -d)"
+  if git -C "$tmp" init -q &&
+    git -C "$tmp" fetch -q --depth 1 "https://github.com/$owner/$repo.git" "$sha" &&
+    git -C "$tmp" archive --format=tar.gz --prefix="$repo-$sha/" -o "$mirror_dir/$sha.tmp" FETCH_HEAD; then
     mv "$mirror_dir/$sha.tmp" "$mirror_dir/$sha"
-    rm -rf "$tmp"
-  done
+  else
+    rm -f "$mirror_dir/$sha.tmp"
+    echo "Warning: could not pack $owner/$repo@$sha, Yarn will try to download it." >&2
+  fi
+  rm -rf "$tmp"
+}
+
+lockfiles=()
+for f in kotlin-js-store/yarn.lock kotlin-js-store/*/yarn.lock; do
+  [ -f "$f" ] && lockfiles+=("$f")
+done
+tarball_urls=""
+if [ "${#lockfiles[@]}" -gt 0 ]; then
+  tarball_urls="$(grep -ho 'https://codeload.github.com/[^"]*/tar.gz/[0-9a-f]*' "${lockfiles[@]}" | sort -u || true)"
+fi
+while IFS=/ read -r _ _ _ owner repo _ sha; do
+  [ -n "$sha" ] && [ ! -s "$mirror_dir/$sha" ] && pack_github_tarball "$owner" "$repo" "$sha"
+done <<< "$tarball_urls"
 
 # 3. Headless Chrome for the browser tests (Karma reads CHROME_BIN). The cloud image ships
 # Playwright's Chromium. Sessions run as root, where Chrome only starts with --no-sandbox,
@@ -75,15 +95,17 @@ gradle_args=(
 )
 log="$(mktemp)"
 trap 'rm -f "$log"' EXIT
-for attempt in 1 2 3 4 5 6; do
+max_attempts=6
+for attempt in $(seq 1 "$max_attempts"); do
   if ./gradlew "${gradle_args[@]}" 2>&1 | tee "$log" >&2; then
     echo "Cloud session setup complete: JDK 21, Gradle and npm dependencies, CHROME_BIN; :shared:jsTest and :shared:wasmJsTest pass."
     exit 0
   fi
-  if ! grep -qE 'status code (429|5[0-9][0-9])|Could not (GET|HEAD|resolve)|Connection (reset|refused)|timed out' "$log"; then
+  if ! grep -qE 'status code (429|5[0-9][0-9])|Could not (GET|HEAD) |Connection (reset|refused)|(Read|connect) timed out|Network is unreachable|Temporary failure in name resolution|Remote host terminated the handshake' "$log"; then
     echo "Gradle warm-up failed (not a network error, not retrying)." >&2
     exit 1
   fi
+  [ "$attempt" -lt "$max_attempts" ] || break
   echo "Gradle warm-up hit a network error (attempt $attempt), retrying in $((attempt * 15))s..." >&2
   sleep $((attempt * 15))
 done
