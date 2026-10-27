@@ -115,14 +115,16 @@ database and setting the admin credentials as secrets).
 
 ## Roadmap
 
+Each step is one GitHub issue, one AI conversation and one pull request (see [CLAUDE.md](./CLAUDE.md#workflow)).
+
 1. ✅ Specification: README and CLAUDE.md
 2. ✅ Resolve the open questions
-3. Development setup: SessionStart hook so cloud AI sessions can build and test
-4. `server` module (Ktor) with SQLite persistence and the REST API, plus tests
-5. Shared DTOs in `shared`, API client in the web app
-6. User UI: invite link page, batch list, request a code, copy and redeem
-7. Admin UI: login, manage apps and invite links, upload batches, statistics
-8. Packaging as a Docker image and deployment to Fly.io, plus CI
+3. [#2](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/2) Development setup: SessionStart hook so cloud AI sessions can build and test
+4. [#3](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/3) `server` module (Ktor) with SQLite persistence and the REST API, plus tests
+5. [#4](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/4) Shared API models, API client in the web app
+6. [#5](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/5) User UI: invite link page, batch list, request a code, copy and redeem
+7. [#6](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/6) Admin UI: login, manage apps and invite links, upload batches, statistics
+8. [#7](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/7) Packaging as a Docker image and deployment to Fly.io, plus CI
 
 ---
 

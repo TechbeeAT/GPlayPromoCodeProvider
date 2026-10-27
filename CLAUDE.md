@@ -80,6 +80,21 @@ Update this list when the server module and its tasks are added.
 - Follow the official Kotlin code style (`kotlin.code.style=official`).
 - Keep commits small and focused, with descriptive messages.
 
+## Workflow
+
+The project is built along the roadmap in the README. Each roadmap step has a GitHub issue.
+
+- **One step = one issue = one conversation = one pull request.** A session typically starts with
+  "Work on issue #N". Read the issue, README and this file first; stay within the issue's scope.
+- Reference the issue in the PR description (`Closes #N`).
+- Before opening or updating the PR, run the build and tests, and review your own diff.
+- At the end of a step:
+  - tick it off in the README roadmap (✅),
+  - update README and CLAUDE.md for any new decisions, commands or modules,
+  - record follow-ups and open questions in the issue, a new issue, or the README.
+- Never leave decisions or next steps only in the chat. The next conversation starts from the
+  default branch and sees only what is committed and in GitHub.
+
 ## Working with the owner
 
 - When something in the spec is ambiguous, ask instead of assuming. Record decisions in the README.
