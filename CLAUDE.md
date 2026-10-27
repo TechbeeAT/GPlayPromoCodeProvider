@@ -27,8 +27,9 @@ deciding them.
 
 - **Kotlin Multiplatform**, Kotlin version in `gradle/libs.versions.toml`
 - **Compose Multiplatform for Web**: Wasm target (primary) and JS target (fallback)
-- **Ktor** for the server (Kotlin/JVM), planned as module `server`. It also serves the compiled web app.
-- **SQLite** for persistence
+- **Ktor** for the server (Kotlin/JVM), module `server`. It will also serve the compiled web app.
+- **SQLite** for persistence, accessed through **Exposed** (DSL, JDBC). Schema migrations are plain SQL
+  in `server/.../db/Migrations.kt`, versioned with `PRAGMA user_version`.
 - **Docker** image as the single deployable, deployed to **Fly.io** (SQLite file on a Fly volume)
 - UI language: English only (no i18n needed)
 - Gradle with Kotlin DSL and a version catalog (`gradle/libs.versions.toml`)
@@ -38,9 +39,10 @@ deciding them.
 
 | Module | Purpose |
 |--------|---------|
-| `shared` | Compose UI, view models, and later the `@Serializable` DTOs shared with the server. Targets: `js`, `wasmJs` (a `jvm` target is added when the server needs the DTOs). |
+| `api` | `@Serializable` DTOs of the REST API, shared by server and web app. Only depends on kotlinx.serialization (no Compose). Targets: `jvm`, `js`, `wasmJs`. |
+| `shared` | Compose UI and view models. Targets: `js`, `wasmJs`. Will depend on `api` (step #4). |
 | `webApp` | Web entry point (`main.kt` → `ComposeViewport { App() }`), `index.html`, CSS. |
-| `server` | *(planned)* Ktor REST API, SQLite persistence, admin authentication, serving the web app. |
+| `server` | Ktor REST API (Kotlin/JVM), SQLite persistence via Exposed, admin authentication. Will also serve the web app (step #7). |
 
 ## Commands
 
@@ -49,9 +51,11 @@ deciding them.
 ./gradlew :webApp:jsBrowserDevelopmentRun       # run the web app (JS)
 ./gradlew :shared:wasmJsTest                    # tests (Wasm)
 ./gradlew :shared:jsTest                        # tests (JS)
+./gradlew :server:test                          # server tests (JVM)
+ADMIN_USERNAME=admin ADMIN_PASSWORD=secret COOKIE_SECURE=false ./gradlew :server:run   # run the server on :8080
 ```
 
-Update this list when the server module and its tasks are added.
+Server environment variables are documented in `server/.../ServerConfig.kt` and the README.
 
 ## Cloud session setup
 
@@ -76,7 +80,7 @@ session starts once it is done. The steps:
 3. **Headless Chrome**: points `CHROME_BIN` (also exported for the session through
    `CLAUDE_ENV_FILE`) to a wrapper around the image's Playwright Chromium that adds `--no-sandbox`,
    because sessions run as root.
-4. **Gradle warm-up**: runs `./gradlew :shared:jsTest :shared:wasmJsTest`. This downloads the Gradle
+4. **Gradle warm-up**: runs `./gradlew :shared:jsTest :shared:wasmJsTest :server:test`. This downloads the Gradle
    distribution, Maven and npm dependencies, Node.js and Yarn, compiles and runs the tests. Maven
    Central often answers `429 Too Many Requests` to a fresh container, so network errors are retried
    (up to 6 attempts); other failures, such as a failing test, are not.
@@ -88,10 +92,10 @@ To verify it, run it by hand in a cloud session and then run the tests:
 
 ```bash
 CLAUDE_CODE_REMOTE=true .claude/hooks/session-start.sh
-./gradlew :shared:jsTest :shared:wasmJsTest
+./gradlew :shared:jsTest :shared:wasmJsTest :server:test
 ```
 
-When a new module or test task is added (e.g. `:server:test`), add it to the warm-up in the hook.
+When a new module or test task is added, add it to the warm-up in the hook.
 
 ## Domain rules (must hold)
 
@@ -110,9 +114,13 @@ When a new module or test task is added (e.g. `:server:test`), add it to the war
 
 ## Conventions
 
-- Put shared models and API contracts in `shared/commonMain` so that client and server can't drift apart.
+- Put shared models and API contracts in `api/commonMain` so that client and server can't drift apart.
 - Keep business logic (code allocation, validation) out of Ktor routes and Compose UI, in plain
-  classes that can be unit tested.
+  classes that can be unit tested (server: package `server.domain`; routes only map HTTP to it).
+- Inject `kotlin.time.Clock` wherever "now" matters, so tests can control time.
+- Never install Ktor's `CallLogging` or log request paths: they contain invite tokens. The
+  `Exposed` logger is off because it logs statement values (codes). Don't log exception messages of
+  `SQLException`s.
 - Write tests along with new logic. Code allocation and expiry handling in particular need tests,
   including a concurrency test for rule 1.
 - Use `kotlinx-datetime` / `kotlin.time.Instant` for timestamps and store them in UTC.
