@@ -62,6 +62,12 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Deployment | One Docker image (Ktor server also serves the web app), deployable to [Fly.io](https://fly.io). |
 | Language | English only. |
 | Build JDK | Java 21, any vendor (Gradle daemon criteria). Not pinned to Azul so cloud AI sessions can use the preinstalled OpenJDK. |
+| API models | Separate KMP module `api` (jvm, js, wasmJs), only kotlinx.serialization. The server doesn't pull in Compose. |
+| Admin login | `POST /api/admin/login` with username and password. On success the server creates a session (kept in memory, 12 hours) and sets a random session id as an `HttpOnly`, `SameSite=Strict` cookie (also `Secure` unless `COOKIE_SECURE=false`). Logout ends the session. A server restart logs the admin out. |
+| Database access | [Exposed](https://www.jetbrains.com/exposed/) DSL on the SQLite JDBC driver. Migrations are plain SQL versioned with `PRAGMA user_version` (no extra migration library). Timestamps are stored as UTC epoch milliseconds. |
+| Atomic hand-out | One SQL statement: `UPDATE promo_code SET consumed_at = ? WHERE consumed_at IS NULL AND id = (SELECT … LIMIT 1) RETURNING code`. Transactions use `BEGIN IMMEDIATE` and a busy timeout, so concurrent writers queue up instead of failing. |
+| Expiry | A batch's `expiresAt` is an exact instant (UTC). From that instant on, its remaining codes count as expired. The admin UI will turn a picked date into an instant. |
+| Upload rules | Codes are unique per app (the same code may exist in two different apps). Duplicates, against existing codes of the app or within the upload, are skipped and returned to the admin. An upload with no new code, an expiry date in the past, or a code longer than 128 characters is rejected. At most 10,000 codes per upload. |
 
 ---
 
@@ -70,26 +76,60 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Part | Technology | Module |
 |------|------------|--------|
 | Web UI | [Compose Multiplatform](https://kotlinlang.org/compose-multiplatform/) for Web (Wasm, with a JS fallback) | `webApp`, `shared` |
-| Server / REST API | [Ktor](https://ktor.io/) (Kotlin/JVM), also serves the compiled web app | `server` *(planned)* |
-| Shared models | Kotlin Multiplatform (`commonMain`), `kotlinx.serialization` DTOs used by both client and server | `shared` |
-| Persistence | SQLite, accessed by the server only | `server` |
+| Server / REST API | [Ktor](https://ktor.io/) (Kotlin/JVM), will also serve the compiled web app | `server` |
+| Shared models | Kotlin Multiplatform (`commonMain`), `kotlinx.serialization` DTOs used by both client and server | `api` |
+| Persistence | SQLite via Exposed, accessed by the server only | `server` |
 | Packaging | Docker image, deployed to Fly.io with a volume for the SQLite file | *(planned)* |
 
-### Domain model (draft)
+### Domain model
 
-- **App**: `id`, `name`, `packageName?`, `description?`, `inviteToken` (unique, random, regenerable)
+- **App**: `id`, `name`, `packageName?`, `description?`, `inviteToken` (unique, 32 random bytes, URL-safe Base64, regenerable), `createdAt`
 - **CodeBatch**: `id`, `appId`, `description?`, `expiresAt`, `createdAt`
-- **PromoCode**: `id`, `batchId`, `code` (unique per app), `status` (`AVAILABLE` / `CONSUMED`), `consumedAt?`
+- **PromoCode**: `id`, `appId`, `batchId`, `code` (unique per app), `consumedAt?` (null while available;
+  this replaces the separate `status` column of the first draft). "Expired" is not stored: it follows
+  from the batch's `expiresAt`.
+
+### REST API
+
+All bodies are JSON; the models are in [`api`](./api/src/commonMain/kotlin/at/techbee/gplaypromocodeprovider/api).
+Errors are `{"error": "<code>", "message": "..."}`.
+
+User endpoints (scoped by the invite token; an unknown token, an unknown batch and a batch of another
+app all give the same `404`):
+
+| Method and path | Response |
+|-----------------|----------|
+| `GET /api/invite/{token}` | `InviteResponse`: app name and batches with available, non-expired codes |
+| `POST /api/invite/{token}/batches/{batchId}/code` | `PromoCodeResponse` with one code, or `409 no_code_available` |
+
+Admin endpoints (all except login and logout need the session cookie, otherwise `401`):
+
+| Method and path | Response |
+|-----------------|----------|
+| `POST /api/admin/login` | `204` and session cookie, or `401` |
+| `POST /api/admin/logout` | `204` |
+| `GET /api/admin/session` | `AdminSessionResponse` (to check whether the admin is logged in) |
+| `GET /api/admin/apps` | `AdminApp` list, each with statistics |
+| `POST /api/admin/apps` | `201`, the new `AdminApp` |
+| `GET /api/admin/apps/{appId}` | `AdminApp` |
+| `PUT /api/admin/apps/{appId}` | the updated `AdminApp` |
+| `POST /api/admin/apps/{appId}/invite-token` | `AdminApp` with a new invite token (the old link stops working) |
+| `GET /api/admin/apps/{appId}/batches` | `AdminBatch` list with statistics, newest first |
+| `POST /api/admin/apps/{appId}/batches` | `201`, `BatchUploadResponse` (new batch, number of added codes, skipped duplicates) |
 
 ---
 
 ## Project structure
 
-- [`/shared`](./shared/src): code shared by the Compose Multiplatform apps (UI, view models, and later the DTOs shared with the server).
+- [`/api`](./api/src/commonMain/kotlin): the REST API models, shared by server and web app.
+- [`/shared`](./shared/src): code shared by the Compose Multiplatform apps (UI, view models).
   - [`commonMain`](./shared/src/commonMain/kotlin): code common to all targets.
   - `jsMain` / `wasmJsMain`: platform-specific code for the two web targets.
 - [`/webApp`](./webApp/src): the web entry point (`main.kt`, `index.html`, styles).
-- `/server` *(planned)*: the Ktor backend.
+- [`/server`](./server/src): the Ktor backend.
+  - `db`: database connection, migrations, Exposed table mappings.
+  - `domain`: business logic (code allocation, upload, statistics, validation), unit tested.
+  - `routes`: the HTTP endpoints and admin authentication.
 
 ---
 
@@ -99,12 +139,25 @@ Web app:
 - Wasm target (faster, modern browsers): `./gradlew :webApp:wasmJsBrowserDevelopmentRun`
 - JS target (slower, supports older browsers): `./gradlew :webApp:jsBrowserDevelopmentRun`
 
-Server: *coming soon.*
+Server (port 8080 by default):
+
+```bash
+ADMIN_USERNAME=admin ADMIN_PASSWORD=secret COOKIE_SECURE=false ./gradlew :server:run
+```
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `ADMIN_USERNAME` | *(required)* | Admin login name |
+| `ADMIN_PASSWORD` | *(required)* | Admin password |
+| `PORT` | `8080` | HTTP port |
+| `DATABASE_PATH` | `data/gplaypromocodeprovider.db` | SQLite file, created with its directory if missing |
+| `COOKIE_SECURE` | `true` | Send the session cookie over HTTPS only. Set to `false` for local development over plain HTTP. |
 
 ## Running tests
 
 - Wasm target: `./gradlew :shared:wasmJsTest`
 - JS target: `./gradlew :shared:jsTest`
+- Server: `./gradlew :server:test` (JVM, no browser needed; uses temporary SQLite files)
 
 The browser tests need Chrome or Chromium (Karma uses `CHROME_BIN` if set). Claude Code cloud sessions are
 prepared automatically by a SessionStart hook, see [CLAUDE.md](./CLAUDE.md#cloud-session-setup).
@@ -124,11 +177,21 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 1. ✅ Specification: README and CLAUDE.md
 2. ✅ Resolve the open questions
 3. ✅ [#2](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/2) Development setup: SessionStart hook so cloud AI sessions can build and test
-4. [#3](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/3) `server` module (Ktor) with SQLite persistence and the REST API, plus tests
+4. ✅ [#3](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/3) `server` module (Ktor) with SQLite persistence and the REST API, plus tests
 5. [#4](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/4) Shared API models, API client in the web app
 6. [#5](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/5) User UI: invite link page, batch list, request a code, copy and redeem
 7. [#6](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/6) Admin UI: login, manage apps and invite links, upload batches, statistics
 8. [#7](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/7) Packaging as a Docker image and deployment to Fly.io, plus CI
+
+### Follow-ups and open points
+
+- **Step #4**: make `shared` depend on `api`.
+- **Step #7**: serve the compiled web app from the server. Behind Fly.io's proxy, TLS ends at the
+  proxy, so Ktor needs `XForwardedHeaders` to see `https` (otherwise it refuses to send the `Secure`
+  session cookie).
+- **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing.
+  The invite endpoints could be rate-limited too.
+- **Suggestion**: deleting apps and batches is not part of the API yet.
 
 ---
 
