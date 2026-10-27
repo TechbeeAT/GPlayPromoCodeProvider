@@ -8,7 +8,8 @@ pick one of the available batches and request a code. The platform hands out an 
 batch and marks it as consumed. It works for **any** app: nothing is tied to a specific product.
 
 > **Status:** Early stage. This README describes the target specification; the implementation is being
-> built step by step. The project is also a showcase for AI-assisted development (see [CLAUDE.md](./CLAUDE.md)).
+> built step by step. The project is also a showcase for AI-assisted development: see [CLAUDE.md](./CLAUDE.md)
+> and the reusable [AI-assisted project kickoff guide](./docs/ai-workflow.md).
 
 ---
 
@@ -115,7 +116,8 @@ database and setting the admin credentials as secrets).
 
 ## Roadmap
 
-Each step is one GitHub issue, one AI conversation and one pull request (see [CLAUDE.md](./CLAUDE.md#workflow)).
+Each step is one GitHub issue, one AI conversation and one pull request (see [CLAUDE.md](./CLAUDE.md#workflow)
+and [docs/ai-workflow.md](./docs/ai-workflow.md)).
 
 1. ✅ Specification: README and CLAUDE.md
 2. ✅ Resolve the open questions
