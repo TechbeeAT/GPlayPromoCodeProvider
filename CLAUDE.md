@@ -53,6 +53,46 @@ deciding them.
 
 Update this list when the server module and its tasks are added.
 
+## Cloud session setup
+
+Claude Code cloud sessions start in a fresh container. The SessionStart hook
+[`.claude/hooks/session-start.sh`](./.claude/hooks/session-start.sh) (registered in
+`.claude/settings.json`) prepares it so the commands above work right away. It runs only when
+`CLAUDE_CODE_REMOTE=true`; on a local machine it exits immediately. It runs synchronously, so the
+session starts once it is done. The steps:
+
+1. **JDK 21**: installs OpenJDK 21 through apt if neither `java` on PATH nor a JDK under `/usr/lib/jvm`
+   is version 21. The Gradle
+   daemon needs Java 21 of any vendor (`gradle/gradle-daemon-jvm.properties`). The vendor was
+   previously pinned to Azul, but the cloud network policy blocks `cdn.azul.com`.
+2. **Karma from GitHub**: Kotlin/JS pins a fork of karma (the browser test runner) as a GitHub
+   tarball from `codeload.github.com`. Cloud sessions can only download such tarballs for the
+   repositories attached to the session; for others GitHub access answers 403, even when the domain
+   is in the environment's allowed domains. Cloning public repositories with git works, so the hook
+   fetches that commit with git and puts a `git archive` of it into a Yarn offline mirror
+   (`~/.cache/yarn-offline-mirror`, configured in `~/.yarnrc`), where Yarn looks first. Every
+   `codeload.github.com` URL in `kotlin-js-store/**/yarn.lock` is handled this way. If packing
+   fails, the hook only prints a warning and continues.
+3. **Headless Chrome**: points `CHROME_BIN` (also exported for the session through
+   `CLAUDE_ENV_FILE`) to a wrapper around the image's Playwright Chromium that adds `--no-sandbox`,
+   because sessions run as root.
+4. **Gradle warm-up**: runs `./gradlew :shared:jsTest :shared:wasmJsTest`. This downloads the Gradle
+   distribution, Maven and npm dependencies, Node.js and Yarn, compiles and runs the tests. Maven
+   Central often answers `429 Too Many Requests` to a fresh container, so network errors are retried
+   (up to 6 attempts); other failures, such as a failing test, are not.
+
+A fresh container takes about 2 to 6 minutes (mostly waiting out Maven Central rate limits). When
+everything is already present, the hook takes a few seconds and is safe to run again.
+
+To verify it, run it by hand in a cloud session and then run the tests:
+
+```bash
+CLAUDE_CODE_REMOTE=true .claude/hooks/session-start.sh
+./gradlew :shared:jsTest :shared:wasmJsTest
+```
+
+When a new module or test task is added (e.g. `:server:test`), add it to the warm-up in the hook.
+
 ## Domain rules (must hold)
 
 1. A promo code is handed out **at most once**. Hand-out is a single atomic database operation
