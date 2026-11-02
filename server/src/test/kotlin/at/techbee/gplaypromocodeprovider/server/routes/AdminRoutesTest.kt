@@ -13,12 +13,23 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
+import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.setCookie
+import io.ktor.server.application.plugin
+import io.ktor.server.auth.AuthenticationRouteSelector
+import io.ktor.server.routing.HttpMethodRouteSelector
+import io.ktor.server.routing.PathSegmentConstantRouteSelector
+import io.ktor.server.routing.PathSegmentParameterRouteSelector
+import io.ktor.server.routing.RootRouteSelector
+import io.ktor.server.routing.RoutingNode
+import io.ktor.server.routing.RoutingRoot
+import io.ktor.server.routing.TrailingSlashRouteSelector
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -46,6 +57,29 @@ class AdminRoutesTest {
     fun adminEndpointsRejectMissingSession() = apiTest {
         for (response in adminEndpointsRespond()) {
             assertEquals(HttpStatusCode.Unauthorized, response.status, response.call.request.url.toString())
+        }
+    }
+
+    /**
+     * Walks all registered routes, so a new admin route that is accidentally placed outside the
+     * `authenticate` block fails here, even if nobody adds it to [adminEndpointsRespond].
+     */
+    @Test
+    fun everyAdminRouteExceptLoginAndLogoutRequiresASession() = apiTest {
+        builder.startApplication()
+        val public = setOf(HttpMethod.Post to "/api/admin/login", HttpMethod.Post to "/api/admin/logout")
+        val adminRoutes = builder.application.plugin(RoutingRoot).endpoints()
+            .filter { (_, path) -> path.startsWith("/api/admin/") }
+        assertTrue(public.all { it in adminRoutes }, "login and logout must be among $adminRoutes")
+        assertTrue(adminRoutes.size > public.size, "no protected admin routes found")
+
+        for ((method, path) in adminRoutes - public) {
+            val response = client.request(path.replace(Regex("\\{[^}]+}"), "1")) {
+                this.method = method
+                contentType(ContentType.Application.Json)
+                setBody("{}")
+            }
+            assertEquals(HttpStatusCode.Unauthorized, response.status, "$method $path must require a session")
         }
     }
 
@@ -212,3 +246,22 @@ class AdminRoutesTest {
         assertEquals(apps.getValue(app.id).stats, client.get("/api/admin/apps/${app.id}").body<AdminApp>().stats)
     }
 }
+
+/** Every endpoint below this node as (method, path), path parameters written as `{name}`. */
+private fun RoutingNode.endpoints(): List<Pair<HttpMethod, String>> {
+    val own = (selector as? HttpMethodRouteSelector)?.let { listOf(it.method to path()) }.orEmpty()
+    return own + children.flatMap { it.endpoints() }
+}
+
+private fun RoutingNode.path(): String = generateSequence(this) { it.parent }.toList().asReversed()
+    .mapNotNull { node ->
+        when (val selector = node.selector) {
+            is PathSegmentConstantRouteSelector -> selector.value
+            is PathSegmentParameterRouteSelector -> "{${selector.name}}"
+            is RootRouteSelector, is HttpMethodRouteSelector, is AuthenticationRouteSelector,
+            is TrailingSlashRouteSelector -> null
+            // Fail instead of silently building a wrong path for a selector this test doesn't know.
+            else -> error("Unexpected route selector ${selector::class.simpleName} in $node")
+        }
+    }
+    .joinToString("/", prefix = "/")
