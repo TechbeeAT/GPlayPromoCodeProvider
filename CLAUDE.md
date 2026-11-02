@@ -40,7 +40,7 @@ deciding them.
 | Module | Purpose |
 |--------|---------|
 | `api` | `@Serializable` DTOs of the REST API, shared by server and web app. Only depends on kotlinx.serialization (no Compose). Targets: `jvm`, `js`, `wasmJs`. |
-| `shared` | Compose UI and view models. Targets: `js`, `wasmJs`. Will depend on `api` (step #4). |
+| `shared` | Compose UI, view models and the API client (`client.ApiClient`, Ktor client). Depends on `api`. Targets: `js`, `wasmJs`. |
 | `webApp` | Web entry point (`main.kt` → `ComposeViewport { App() }`), `index.html`, CSS. |
 | `server` | Ktor REST API (Kotlin/JVM), SQLite persistence via Exposed, admin authentication. Will also serve the web app (step #7). |
 
@@ -116,6 +116,8 @@ When a new module or test task is added, add it to the warm-up in the hook.
 ## Conventions
 
 - Put shared models and API contracts in `api/commonMain` so that client and server can't drift apart.
+- The web app talks to the server only through `ApiClient`. Handle every `ApiResult` case in the UI
+  (`Failure` by its `ApiError`, `NetworkError`); the client never throws except on cancellation.
 - Keep business logic (code allocation, validation) out of Ktor routes and Compose UI, in plain
   classes that can be unit tested (server: package `server.domain`; routes only map HTTP to it).
 - Inject `kotlin.time.Clock` wherever "now" matters, so tests can control time.

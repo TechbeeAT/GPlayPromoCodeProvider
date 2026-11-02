@@ -67,6 +67,7 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Database access | [Exposed](https://www.jetbrains.com/exposed/) DSL on the SQLite JDBC driver. Migrations are plain SQL versioned with `PRAGMA user_version` (no extra migration library). Timestamps are stored as UTC epoch milliseconds. |
 | Atomic hand-out | One SQL statement: `UPDATE promo_code SET consumed_at = ? WHERE consumed_at IS NULL AND id = (SELECT … LIMIT 1) RETURNING code`. Transactions use `BEGIN IMMEDIATE` and a busy timeout, so concurrent writers queue up instead of failing. |
 | Expiry | A batch's `expiresAt` is an exact instant (UTC). From that instant on, its remaining codes count as expired. The admin UI will turn a picked date into an instant. |
+| API client | `ApiClient` in `shared` (package `client`), on the Ktor client with the browser's `fetch` for JS and Wasm. Every call returns an `ApiResult` (`Success`, `Failure` with status and `ApiError`, `NetworkError`) instead of throwing, so the UI has to handle each case. JSON is parsed leniently (`ignoreUnknownKeys`, `coerceInputValues`), so an older web app keeps working against a newer server. Path segments are encoded including `/`, so an invite token can't change the request path. |
 | Upload rules | Codes are unique per app (the same code may exist in two different apps). Duplicates, against existing codes of the app or within the upload, are skipped and returned to the admin. An upload with no new code, an expiry date in the past, or a code longer than 128 characters is rejected. At most 10,000 codes per upload. |
 
 ---
@@ -95,7 +96,8 @@ All bodies are JSON; the models are in [`api`](./api/src/commonMain/kotlin/at/te
 Errors are `{"error": "<code>", "message": "..."}`, where `error` is the `ApiError` enum
 (`not_found`, `no_code_available`, `invalid_request`, `unauthorized`, `internal_error`). Clients should
 parse with `coerceInputValues = true`, so a code they don't know yet becomes `unknown` instead of
-failing; the web app's API client will do this (step #4).
+failing; the web app's API client does this. If an error body isn't an `ErrorResponse` (e.g. a proxy's error
+page), the client derives the code from the status (`400`, `401`, `404`, `5xx`; otherwise `unknown`).
 
 User endpoints (scoped by the invite token; an unknown token, an unknown batch and a batch of another
 app all give the same `404`):
@@ -126,8 +128,10 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
 
 - [`/api`](./api/src/commonMain/kotlin): the REST API models, shared by server and web app.
 - [`/shared`](./shared/src): code shared by the Compose Multiplatform apps (UI, view models).
-  - [`commonMain`](./shared/src/commonMain/kotlin): code common to all targets.
-  - `jsMain` / `wasmJsMain`: platform-specific code for the two web targets.
+  - [`commonMain`](./shared/src/commonMain/kotlin): code common to all targets, e.g. the app shell (`App.kt`)
+    and the API client (`client`).
+  - [`commonTest`](./shared/src/commonTest/kotlin): tests, run in a headless browser for both JS and Wasm.
+    The API client is tested against Ktor's `MockEngine`.
 - [`/webApp`](./webApp/src): the web entry point (`main.kt`, `index.html`, styles).
 - [`/server`](./server/src): the Ktor backend.
   - `db`: database connection, migrations, Exposed table mappings.
@@ -182,14 +186,17 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 2. ✅ Resolve the open questions
 3. ✅ [#2](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/2) Development setup: SessionStart hook so cloud AI sessions can build and test
 4. ✅ [#3](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/3) `server` module (Ktor) with SQLite persistence and the REST API, plus tests
-5. [#4](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/4) Shared API models, API client in the web app
+5. ✅ [#4](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/4) Shared API models, API client in the web app
 6. [#5](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/5) User UI: invite link page, batch list, request a code, copy and redeem
 7. [#6](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/6) Admin UI: login, manage apps and invite links, upload batches, statistics
 8. [#7](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/7) Packaging as a Docker image and deployment to Fly.io, plus CI
 
 ### Follow-ups and open points
 
-- **Step #4**: make `shared` depend on `api`; configure the client `Json` with `coerceInputValues = true` (see REST API errors).
+- **Step #5**: the web app's dev server (`…BrowserDevelopmentRun`) and the Ktor server both default to
+  port 8080. To try the UI against a local server, move the dev server to another port and proxy `/api`
+  to `localhost:8080` (a file in `webApp/webpack.config.d`), so the browser sees one origin and sends the
+  session cookie. Create the client with the page's origin (Ktor's `URLBuilder.origin`).
 - **Step #7**: serve the compiled web app from the server. Behind Fly.io's proxy, TLS ends at the
   proxy, so Ktor needs `XForwardedHeaders` to see `https` (otherwise it refuses to send the `Secure`
   session cookie).
