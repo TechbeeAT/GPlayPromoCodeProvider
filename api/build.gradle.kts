@@ -20,5 +20,8 @@ kotlin {
         commonMain.dependencies {
             api(libs.kotlinx.serialization.json)
         }
+        jvmTest.dependencies {
+            implementation(libs.kotlin.testJunit)
+        }
     }
 }

@@ -3,7 +3,7 @@ package at.techbee.gplaypromocodeprovider.server.routes
 import at.techbee.gplaypromocodeprovider.api.AdminApp
 import at.techbee.gplaypromocodeprovider.api.AdminBatch
 import at.techbee.gplaypromocodeprovider.api.AdminSessionResponse
-import at.techbee.gplaypromocodeprovider.api.ApiErrors
+import at.techbee.gplaypromocodeprovider.api.ApiError
 import at.techbee.gplaypromocodeprovider.api.AppRequest
 import at.techbee.gplaypromocodeprovider.api.BatchUploadRequest
 import at.techbee.gplaypromocodeprovider.api.CodeStats
@@ -57,7 +57,7 @@ class AdminRoutesTest {
                 setBody(credentials)
             }
             assertEquals(HttpStatusCode.Unauthorized, response.status)
-            assertEquals(ApiErrors.UNAUTHORIZED, response.body<ErrorResponse>().error)
+            assertEquals(ApiError.UNAUTHORIZED, response.body<ErrorResponse>().error)
         }
         assertTrue(adminEndpointsRespond().all { it.status == HttpStatusCode.Unauthorized })
     }
@@ -134,7 +134,7 @@ class AdminRoutesTest {
                 setBody(request)
             }
             assertEquals(HttpStatusCode.BadRequest, response.status)
-            assertEquals(ApiErrors.INVALID_REQUEST, response.body<ErrorResponse>().error)
+            assertEquals(ApiError.INVALID_REQUEST, response.body<ErrorResponse>().error)
         }
         val malformed = client.post("/api/admin/apps") {
             contentType(ContentType.Application.Json)
@@ -184,7 +184,7 @@ class AdminRoutesTest {
                 setBody(request)
             }
             assertEquals(HttpStatusCode.BadRequest, response.status)
-            assertEquals(ApiErrors.INVALID_REQUEST, response.body<ErrorResponse>().error)
+            assertEquals(ApiError.INVALID_REQUEST, response.body<ErrorResponse>().error)
         }
     }
 

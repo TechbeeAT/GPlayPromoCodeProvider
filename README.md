@@ -92,7 +92,10 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 ### REST API
 
 All bodies are JSON; the models are in [`api`](./api/src/commonMain/kotlin/at/techbee/gplaypromocodeprovider/api).
-Errors are `{"error": "<code>", "message": "..."}`.
+Errors are `{"error": "<code>", "message": "..."}`, where `error` is the `ApiError` enum
+(`not_found`, `no_code_available`, `invalid_request`, `unauthorized`, `internal_error`). Clients should
+parse with `coerceInputValues = true`, so a code they don't know yet becomes `unknown` instead of
+failing; the web app's API client will do this (step #4).
 
 User endpoints (scoped by the invite token; an unknown token, an unknown batch and a batch of another
 app all give the same `404`):
@@ -157,6 +160,7 @@ ADMIN_USERNAME=admin ADMIN_PASSWORD=secret COOKIE_SECURE=false ./gradlew :server
 
 - Wasm target: `./gradlew :shared:wasmJsTest`
 - JS target: `./gradlew :shared:jsTest`
+- API models: `./gradlew :api:jvmTest`
 - Server: `./gradlew :server:test` (JVM, no browser needed; uses temporary SQLite files)
 
 The browser tests need Chrome or Chromium (Karma uses `CHROME_BIN` if set). Claude Code cloud sessions are
@@ -185,7 +189,7 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 
 ### Follow-ups and open points
 
-- **Step #4**: make `shared` depend on `api`.
+- **Step #4**: make `shared` depend on `api`; configure the client `Json` with `coerceInputValues = true` (see REST API errors).
 - **Step #7**: serve the compiled web app from the server. Behind Fly.io's proxy, TLS ends at the
   proxy, so Ktor needs `XForwardedHeaders` to see `https` (otherwise it refuses to send the `Secure`
   session cookie).

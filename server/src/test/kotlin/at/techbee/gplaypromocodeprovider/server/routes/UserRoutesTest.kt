@@ -1,7 +1,7 @@
 package at.techbee.gplaypromocodeprovider.server.routes
 
 import at.techbee.gplaypromocodeprovider.api.AdminApp
-import at.techbee.gplaypromocodeprovider.api.ApiErrors
+import at.techbee.gplaypromocodeprovider.api.ApiError
 import at.techbee.gplaypromocodeprovider.api.ErrorResponse
 import at.techbee.gplaypromocodeprovider.api.InviteResponse
 import at.techbee.gplaypromocodeprovider.api.PromoCodeResponse
@@ -48,7 +48,7 @@ class UserRoutesTest {
 
         val second = client.post("/api/invite/${app.inviteToken}/batches/${batch.id}/code")
         assertEquals(HttpStatusCode.Conflict, second.status)
-        assertEquals(ApiErrors.NO_CODE_AVAILABLE, second.body<ErrorResponse>().error)
+        assertEquals(ApiError.NO_CODE_AVAILABLE, second.body<ErrorResponse>().error)
     }
 
     @Test
@@ -61,7 +61,7 @@ class UserRoutesTest {
         assertEquals(emptyList(), client.get("/api/invite/${app.inviteToken}").body<InviteResponse>().batches)
         val response = client.post("/api/invite/${app.inviteToken}/batches/${batch.id}/code")
         assertEquals(HttpStatusCode.Conflict, response.status)
-        assertEquals(ApiErrors.NO_CODE_AVAILABLE, response.body<ErrorResponse>().error)
+        assertEquals(ApiError.NO_CODE_AVAILABLE, response.body<ErrorResponse>().error)
     }
 
     @Test
@@ -69,7 +69,7 @@ class UserRoutesTest {
         login()
         val app = createApp()
         val batch = uploadBatch(app.id, "A").batch
-        val notFound = ErrorResponse(ApiErrors.NOT_FOUND, "Not found")
+        val notFound = ErrorResponse(ApiError.NOT_FOUND, "Not found")
 
         for (response in listOf(
             client.get("/api/invite/unknown-token"),
@@ -91,7 +91,7 @@ class UserRoutesTest {
         for (path in listOf("/batches/${otherBatch.id}/code", "/batches/4711/code", "/batches/abc/code")) {
             val response = client.post("/api/invite/${app.inviteToken}$path")
             assertEquals(HttpStatusCode.NotFound, response.status)
-            assertEquals(ErrorResponse(ApiErrors.NOT_FOUND, "Not found"), response.body<ErrorResponse>())
+            assertEquals(ErrorResponse(ApiError.NOT_FOUND, "Not found"), response.body<ErrorResponse>())
         }
     }
 

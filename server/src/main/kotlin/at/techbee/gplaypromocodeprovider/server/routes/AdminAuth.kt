@@ -1,6 +1,6 @@
 package at.techbee.gplaypromocodeprovider.server.routes
 
-import at.techbee.gplaypromocodeprovider.api.ApiErrors
+import at.techbee.gplaypromocodeprovider.api.ApiError
 import at.techbee.gplaypromocodeprovider.api.ErrorResponse
 import at.techbee.gplaypromocodeprovider.server.ServerConfig
 import io.ktor.http.HttpStatusCode
@@ -47,7 +47,7 @@ fun Application.installAdminAuth(config: ServerConfig, clock: Clock) {
                 session.takeIf { clock.now() - it.loggedInAt < ADMIN_SESSION_DURATION }
             }
             challenge {
-                call.respond(HttpStatusCode.Unauthorized, ErrorResponse(ApiErrors.UNAUTHORIZED, "Login required"))
+                call.respond(HttpStatusCode.Unauthorized, ErrorResponse(ApiError.UNAUTHORIZED, "Login required"))
             }
         }
     }

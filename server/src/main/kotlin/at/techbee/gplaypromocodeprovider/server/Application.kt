@@ -1,6 +1,6 @@
 package at.techbee.gplaypromocodeprovider.server
 
-import at.techbee.gplaypromocodeprovider.api.ApiErrors
+import at.techbee.gplaypromocodeprovider.api.ApiError
 import at.techbee.gplaypromocodeprovider.api.ErrorResponse
 import at.techbee.gplaypromocodeprovider.server.domain.AppRepository
 import at.techbee.gplaypromocodeprovider.server.domain.BatchRepository
@@ -38,10 +38,10 @@ fun Application.module(config: ServerConfig, db: Database, clock: Clock = Clock.
     install(ContentNegotiation) { json() }
     install(StatusPages) {
         exception<ValidationException> { call, cause ->
-            call.respond(HttpStatusCode.BadRequest, ErrorResponse(ApiErrors.INVALID_REQUEST, cause.message.orEmpty()))
+            call.respond(HttpStatusCode.BadRequest, ErrorResponse(ApiError.INVALID_REQUEST, cause.message.orEmpty()))
         }
         exception<BadRequestException> { call, _ ->
-            call.respond(HttpStatusCode.BadRequest, ErrorResponse(ApiErrors.INVALID_REQUEST, "Malformed request"))
+            call.respond(HttpStatusCode.BadRequest, ErrorResponse(ApiError.INVALID_REQUEST, "Malformed request"))
         }
         exception<Throwable> { call, cause ->
             if (cause is SQLException) {
@@ -50,7 +50,7 @@ fun Application.module(config: ServerConfig, db: Database, clock: Clock = Clock.
             } else {
                 log.error("Unhandled exception", cause)
             }
-            call.respond(HttpStatusCode.InternalServerError, ErrorResponse(ApiErrors.INTERNAL, "Internal server error"))
+            call.respond(HttpStatusCode.InternalServerError, ErrorResponse(ApiError.INTERNAL, "Internal server error"))
         }
     }
     installAdminAuth(config, clock)

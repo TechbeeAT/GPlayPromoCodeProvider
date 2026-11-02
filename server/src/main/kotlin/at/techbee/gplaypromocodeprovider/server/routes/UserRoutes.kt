@@ -1,6 +1,6 @@
 package at.techbee.gplaypromocodeprovider.server.routes
 
-import at.techbee.gplaypromocodeprovider.api.ApiErrors
+import at.techbee.gplaypromocodeprovider.api.ApiError
 import at.techbee.gplaypromocodeprovider.api.AvailableBatch
 import at.techbee.gplaypromocodeprovider.api.ErrorResponse
 import at.techbee.gplaypromocodeprovider.api.InviteResponse
@@ -36,7 +36,7 @@ fun Route.userRoutes(apps: AppRepository, batches: BatchRepository, allocator: C
                 is HandOutResult.Success -> call.respond(PromoCodeResponse(result.code))
                 HandOutResult.NoCodeAvailable -> call.respond(
                     HttpStatusCode.Conflict,
-                    ErrorResponse(ApiErrors.NO_CODE_AVAILABLE, "No code available in this batch"),
+                    ErrorResponse(ApiError.NO_CODE_AVAILABLE, "No code available in this batch"),
                 )
                 HandOutResult.BatchNotFound -> call.respondNotFound()
             }
@@ -45,4 +45,4 @@ fun Route.userRoutes(apps: AppRepository, batches: BatchRepository, allocator: C
 }
 
 internal suspend fun RoutingCall.respondNotFound() =
-    respond(HttpStatusCode.NotFound, ErrorResponse(ApiErrors.NOT_FOUND, "Not found"))
+    respond(HttpStatusCode.NotFound, ErrorResponse(ApiError.NOT_FOUND, "Not found"))

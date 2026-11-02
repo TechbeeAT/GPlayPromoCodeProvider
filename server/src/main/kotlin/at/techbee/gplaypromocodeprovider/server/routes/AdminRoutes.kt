@@ -3,7 +3,7 @@ package at.techbee.gplaypromocodeprovider.server.routes
 import at.techbee.gplaypromocodeprovider.api.AdminApp
 import at.techbee.gplaypromocodeprovider.api.AdminBatch
 import at.techbee.gplaypromocodeprovider.api.AdminSessionResponse
-import at.techbee.gplaypromocodeprovider.api.ApiErrors
+import at.techbee.gplaypromocodeprovider.api.ApiError
 import at.techbee.gplaypromocodeprovider.api.AppRequest
 import at.techbee.gplaypromocodeprovider.api.BatchUploadRequest
 import at.techbee.gplaypromocodeprovider.api.BatchUploadResponse
@@ -43,7 +43,7 @@ fun Route.adminRoutes(config: ServerConfig, apps: AppRepository, batches: BatchR
             if (!credentials.matches(request.username, request.password)) {
                 return@post call.respond(
                     HttpStatusCode.Unauthorized,
-                    ErrorResponse(ApiErrors.UNAUTHORIZED, "Wrong username or password"),
+                    ErrorResponse(ApiError.UNAUTHORIZED, "Wrong username or password"),
                 )
             }
             // A fresh session id on every login (no session fixation).

@@ -51,6 +51,7 @@ deciding them.
 ./gradlew :webApp:jsBrowserDevelopmentRun       # run the web app (JS)
 ./gradlew :shared:wasmJsTest                    # tests (Wasm)
 ./gradlew :shared:jsTest                        # tests (JS)
+./gradlew :api:jvmTest                          # API model tests (JVM)
 ./gradlew :server:test                          # server tests (JVM)
 ADMIN_USERNAME=admin ADMIN_PASSWORD=secret COOKIE_SECURE=false ./gradlew :server:run   # run the server on :8080
 ```
@@ -80,7 +81,7 @@ session starts once it is done. The steps:
 3. **Headless Chrome**: points `CHROME_BIN` (also exported for the session through
    `CLAUDE_ENV_FILE`) to a wrapper around the image's Playwright Chromium that adds `--no-sandbox`,
    because sessions run as root.
-4. **Gradle warm-up**: runs `./gradlew :shared:jsTest :shared:wasmJsTest :server:test`. This downloads the Gradle
+4. **Gradle warm-up**: runs `./gradlew :shared:jsTest :shared:wasmJsTest :api:jvmTest :server:test`. This downloads the Gradle
    distribution, Maven and npm dependencies, Node.js and Yarn, compiles and runs the tests. Maven
    Central often answers `429 Too Many Requests` to a fresh container, so network errors are retried
    (up to 6 attempts); other failures, such as a failing test, are not.
@@ -92,7 +93,7 @@ To verify it, run it by hand in a cloud session and then run the tests:
 
 ```bash
 CLAUDE_CODE_REMOTE=true .claude/hooks/session-start.sh
-./gradlew :shared:jsTest :shared:wasmJsTest :server:test
+./gradlew :shared:jsTest :shared:wasmJsTest :api:jvmTest :server:test
 ```
 
 When a new module or test task is added, add it to the warm-up in the hook.
