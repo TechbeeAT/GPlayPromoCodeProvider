@@ -196,6 +196,10 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 - **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing.
   The invite endpoints could be rate-limited too.
 - **Suggestion**: deleting apps and batches is not part of the API yet.
+- **Decision**: `server/.../db/Tables.kt` mirrors the SQL in `Migrations.kt` by hand; nothing checks
+  that they match (the tests only catch mismatches in columns they use). Fine at three tables and with
+  no migrations planned. If the schema starts changing, consider a schema check test (Exposed's
+  `exposed-migration` module) or switching to SQLDelight, whose compiler checks queries and migrations.
 
 ---
 
