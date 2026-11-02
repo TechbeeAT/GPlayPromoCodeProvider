@@ -24,10 +24,10 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.URLBuilder
 import io.ktor.http.appendPathSegments
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.http.takeFrom
 import io.ktor.serialization.ContentConvertException
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.util.reflect.TypeInfo
@@ -133,8 +133,8 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine? = null) : AutoCloseab
         val response = try {
             http.request {
                 this.method = method
-                // appendPathSegments encodes each segment, so a token can't change the path.
-                url(URLBuilder(baseUrl).appendPathSegments("api", *path).build())
+                // Each segment is encoded, including "/", so a token can't change the path.
+                url { takeFrom(baseUrl).appendPathSegments(listOf("api", *path), encodeSlash = true) }
                 configure()
             }
         } catch (e: CancellationException) {
