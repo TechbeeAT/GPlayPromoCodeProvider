@@ -1,0 +1,14 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+    <!-- Exposed logs failed statements including their values, which can be promo codes or
+         invite tokens (CLAUDE.md, domain rule 6). Errors still reach the StatusPages handler. -->
+    <logger name="Exposed" level="OFF"/>
+    <logger name="io.netty" level="INFO"/>
+</configuration>

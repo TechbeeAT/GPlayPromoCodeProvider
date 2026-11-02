@@ -1,5 +1,7 @@
 rootProject.name = "GPlayPromoCodeProvider"
 
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 pluginManagement {
     repositories {
         google {
@@ -27,5 +29,7 @@ dependencyResolutionManagement {
     }
 }
 
+include(":api")
+include(":server")
 include(":shared")
 include(":webApp")
