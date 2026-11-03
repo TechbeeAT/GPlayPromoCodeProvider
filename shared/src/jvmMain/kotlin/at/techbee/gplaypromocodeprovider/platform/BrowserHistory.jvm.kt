@@ -4,4 +4,8 @@ package at.techbee.gplaypromocodeprovider.platform
 
 actual fun pushBrowserPath(path: String) = Unit
 
+actual fun previousBrowserPath(): String? = null
+
+actual fun goBackInBrowser() = Unit
+
 actual fun observeBrowserPath(onPathChange: (String) -> Unit): () -> Unit = {}

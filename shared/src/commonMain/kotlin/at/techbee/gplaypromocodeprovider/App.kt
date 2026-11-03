@@ -23,7 +23,9 @@ import at.techbee.gplaypromocodeprovider.admin.AdminArea
 import at.techbee.gplaypromocodeprovider.client.ApiClient
 import at.techbee.gplaypromocodeprovider.invite.InviteScreen
 import at.techbee.gplaypromocodeprovider.invite.InviteViewModel
+import at.techbee.gplaypromocodeprovider.platform.goBackInBrowser
 import at.techbee.gplaypromocodeprovider.platform.observeBrowserPath
+import at.techbee.gplaypromocodeprovider.platform.previousBrowserPath
 import at.techbee.gplaypromocodeprovider.platform.pushBrowserPath
 
 /**
@@ -44,8 +46,14 @@ fun App(path: String, origin: String, api: ApiClient) {
     }
     val route = remember(currentPath) { Route.parse(currentPath) }
     val navigate = { to: Route.Admin ->
-        pushBrowserPath(to.path)
-        currentPath = to.path
+        if (previousBrowserPath() == to.path) {
+            // Going back to where we came from, e.g. "← All apps": a step back instead of a new entry, so
+            // the history doesn't grow with every round trip. observeBrowserPath reports the new path.
+            goBackInBrowser()
+        } else {
+            pushBrowserPath(to.path)
+            currentPath = to.path
+        }
     }
 
     MaterialTheme {
