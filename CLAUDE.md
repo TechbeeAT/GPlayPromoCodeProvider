@@ -27,7 +27,7 @@ deciding them.
 
 - **Kotlin Multiplatform**, Kotlin version in `gradle/libs.versions.toml`
 - **Compose Multiplatform for Web**: Wasm target (primary) and JS target (fallback)
-- **Ktor** for the server (Kotlin/JVM), module `server`. It will also serve the compiled web app.
+- **Ktor** for the server (Kotlin/JVM), module `server`. It also serves the compiled web app.
 - **SQLite** for persistence, accessed through **Exposed** (DSL, JDBC). Schema migrations are plain SQL
   in `server/.../db/Migrations.kt`, versioned with `PRAGMA user_version`.
 - **Docker** image as the single deployable (`Dockerfile`, `docker-entrypoint.sh`), deployed to **Fly.io**

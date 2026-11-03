@@ -7,8 +7,8 @@ Admins upload batches of promo codes for an app and share the app's invite link.
 pick one of the available batches and request a code. The platform hands out an unused code from that
 batch and marks it as consumed. It works for **any** app: nothing is tied to a specific product.
 
-> **Status:** Early stage. This README describes the target specification; the implementation is being
-> built step by step. The project is also a showcase for AI-assisted development (see [CLAUDE.md](./CLAUDE.md)).
+> **Status:** All roadmap steps are implemented; see the [follow-ups](#follow-ups-and-open-points). The project was
+> built step by step and is also a showcase for AI-assisted development (see [CLAUDE.md](./CLAUDE.md)).
 
 ---
 
@@ -252,7 +252,9 @@ volume is storage that lives outside the container and is mounted into it at `/d
 
 With `WEB_DIR` set, the server answers every path outside `/api` from that directory. Paths without a file
 (`/invite/<token>`, `/admin/apps/1`) get `index.html`, so links and page reloads work. Unknown `/api` paths get the
-API's JSON `404`. The files are sent gzip-compressed (API responses are not: they contain secrets, and compressing
+API's JSON `404`. `index.html` has `<base href="/">`: the production build's loader and webpack chunks load further
+files with relative URLs, which on `/invite/<token>` would otherwise point to `/invite/originWasmWebApp.js` and get
+`index.html` instead of the script. The files are sent gzip-compressed (API responses are not: they contain secrets, and compressing
 secrets together with attacker-controlled data can leak them, see BREACH) with `Cache-Control: no-cache`, so a
 browser always asks whether its copy is still current (`304 Not Modified` if so) and picks up a new release right
 away. `GET /api/health` answers `ok`, for Fly.io's health check.
@@ -439,7 +441,7 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 5. ✅ [#4](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/4) Shared API models, API client in the web app
 6. ✅ [#5](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/5) User UI: invite link page, batch list, request a code, copy and redeem
 7. ✅ [#6](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/6) Admin UI: login, manage apps and invite links, upload batches, statistics
-8. [#7](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/7) Packaging as a Docker image and deployment to Fly.io, plus CI
+8. ✅ [#7](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/7) Packaging as a Docker image and deployment to Fly.io, plus CI
 
 ### Follow-ups and open points
 
