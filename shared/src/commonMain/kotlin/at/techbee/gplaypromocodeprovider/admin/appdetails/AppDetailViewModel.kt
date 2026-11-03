@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
@@ -25,12 +26,14 @@ import kotlin.time.Instant
  *
  * @param endOfDay turns the picked expiry day into the batch's expiration instant; tests replace it,
  *   because the real one depends on the time zone
+ * @param clock decides which expiry days can still be picked
  */
 class AppDetailViewModel(
     private val appId: Long,
     private val api: ApiClient,
     onSessionExpired: () -> Unit,
     private val endOfDay: (Long) -> Instant = ::endOfLocalDay,
+    private val clock: Clock = Clock.System,
 ) : AdminViewModel(onSessionExpired) {
 
     private val _state = MutableStateFlow(AppDetailUiState())
@@ -105,6 +108,9 @@ class AppDetailViewModel(
     // Upload form
 
     fun setDescription(description: String) = updateForm { it.copy(description = description) }
+
+    /** Whether the date picker offers this day (midnight UTC, as the picker passes it): only days that haven't ended. */
+    fun isSelectableExpiryDay(utcDateMillis: Long): Boolean = endOfDay(utcDateMillis) > clock.now()
 
     fun setExpiryDate(utcDateMillis: Long?) = updateForm { it.copy(expiryDateMillis = utcDateMillis) }
 

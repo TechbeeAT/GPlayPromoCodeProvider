@@ -26,6 +26,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -300,6 +302,19 @@ class AppDetailViewModelTest {
 
         assertEquals(1, vm.state.value.upload.codeCount)
         assertEquals(2, UploadFormState(codes = "A\nB").codeCount)
+    }
+
+    @Test
+    fun onlyDaysThatHaveNotEndedCanBePicked() = runTest {
+        val clock = object : Clock {
+            override fun now() = Instant.parse("2027-01-31T12:00:00Z")
+        }
+        // A fixed "end of day": the picked midnight UTC plus 23:59:59.
+        val vm = AppDetailViewModel(1, server().api, onSessionExpired = {}, endOfDay = { Instant.fromEpochMilliseconds(it + 86_399_000) }, clock = clock)
+
+        assertFalse(vm.isSelectableExpiryDay(Instant.parse("2027-01-30T00:00:00Z").toEpochMilliseconds()))
+        assertTrue(vm.isSelectableExpiryDay(Instant.parse("2027-01-31T00:00:00Z").toEpochMilliseconds())) // Today.
+        assertTrue(vm.isSelectableExpiryDay(Instant.parse("2027-02-01T00:00:00Z").toEpochMilliseconds()))
     }
 
     @Test

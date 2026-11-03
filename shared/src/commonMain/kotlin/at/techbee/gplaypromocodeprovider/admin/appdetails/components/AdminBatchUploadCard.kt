@@ -43,7 +43,6 @@ import at.techbee.gplaypromocodeprovider.api.CodeStats
 import at.techbee.gplaypromocodeprovider.platform.endOfLocalDay
 import at.techbee.gplaypromocodeprovider.platform.formatDate
 import at.techbee.gplaypromocodeprovider.platform.formatDateTime
-import kotlin.time.Clock
 import kotlin.time.Instant
 
 /** Duplicates listed in the upload result; more are only counted. */
@@ -55,6 +54,7 @@ internal fun AdminBatchUploadCard(
     form: UploadFormState,
     onDescriptionChange: (String) -> Unit,
     onExpiryDateChange: (Long?) -> Unit,
+    isSelectableExpiryDay: (Long) -> Boolean,
     onCodesChange: (String) -> Unit,
     onUpload: () -> Unit,
     onDismissResult: () -> Unit,
@@ -107,6 +107,7 @@ internal fun AdminBatchUploadCard(
     if (pickingDate) {
         ExpiryDatePickerDialog(
             initial = form.expiryDateMillis,
+            isSelectable = isSelectableExpiryDay,
             onPick = {
                 onExpiryDateChange(it)
                 pickingDate = false
@@ -118,14 +119,18 @@ internal fun AdminBatchUploadCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ExpiryDatePickerDialog(initial: Long?, onPick: (Long?) -> Unit, onDismiss: () -> Unit) {
+private fun ExpiryDatePickerDialog(
+    initial: Long?,
+    isSelectable: (Long) -> Boolean,
+    onPick: (Long?) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val pickerState = rememberDatePickerState(
         initialSelectedDateMillis = initial,
         // Days whose end has passed can't be picked; the server would reject them.
-        selectableDates = remember {
-            val now = Clock.System.now()
+        selectableDates = remember(isSelectable) {
             object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long) = endOfLocalDay(utcTimeMillis) > now
+                override fun isSelectableDate(utcTimeMillis: Long) = isSelectable(utcTimeMillis)
             }
         },
     )
@@ -199,7 +204,15 @@ private val previewDay = Instant.parse("2027-01-31T00:00:00Z").toEpochMillisecon
 @Composable
 private fun UploadPreview(form: UploadFormState) {
     PreviewTheme {
-        AdminBatchUploadCard(form, onDescriptionChange = {}, onExpiryDateChange = {}, onCodesChange = {}, onUpload = {}, onDismissResult = {})
+        AdminBatchUploadCard(
+            form,
+            onDescriptionChange = {},
+            onExpiryDateChange = {},
+            isSelectableExpiryDay = { true },
+            onCodesChange = {},
+            onUpload = {},
+            onDismissResult = {},
+        )
     }
 }
 
