@@ -63,15 +63,19 @@ data class AdminBatch(
     val expiresAt: Instant,
     val createdAt: Instant,
     val stats: CodeStats,
+    /** When the admin invalidated the batch (`POST …/batches/{batchId}/invalidate`); `null` while it is valid. */
+    val invalidatedAt: Instant? = null,
 )
 
 /**
- * Code counts. A code is either consumed (handed out), expired (not handed out and its batch
- * is past the expiration date) or available.
+ * Code counts. A code is either consumed (handed out), invalidated (not handed out and its batch
+ * was invalidated by the admin), expired (not handed out and its batch is past the expiration date)
+ * or available.
  */
 @Serializable
 data class CodeStats(
     val available: Int,
     val consumed: Int,
     val expired: Int,
+    val invalidated: Int = 0,
 )

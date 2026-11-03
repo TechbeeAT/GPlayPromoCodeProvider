@@ -11,6 +11,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.batchInsert
@@ -18,6 +19,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -76,14 +78,17 @@ class BatchRepository(private val db: Database, private val clock: Clock = Clock
         }
     }
 
-    /** Batches of the app that are not expired and still have available codes, soonest expiry first. */
+    /** Batches of the app that are not expired or invalidated and still have available codes, soonest expiry first. */
     fun listAvailable(appId: Long): List<Batch> = transaction(db) {
         val now = clock.now().toEpochMilliseconds()
         val availableCode = PromoCodes.select(PromoCodes.id).where {
             (PromoCodes.batchId eq CodeBatches.id) and PromoCodes.consumedAt.isNull()
         }
         CodeBatches.selectAll()
-            .where { (CodeBatches.appId eq appId) and (CodeBatches.expiresAt greater now) and exists(availableCode) }
+            .where {
+                (CodeBatches.appId eq appId) and (CodeBatches.expiresAt greater now) and
+                    CodeBatches.invalidatedAt.isNull() and exists(availableCode)
+            }
             .orderBy(CodeBatches.expiresAt to SortOrder.ASC, CodeBatches.id to SortOrder.ASC)
             .map { it.toBatch() }
     }
@@ -97,7 +102,7 @@ class BatchRepository(private val db: Database, private val clock: Clock = Clock
             .map { it.toBatch() }
 
         // Count consumed and not consumed codes per batch. Whether a not consumed code is
-        // available or expired depends only on its batch, which is decided below.
+        // available, expired or invalidated depends only on its batch, which is decided below.
         val count = PromoCodes.id.count()
         val notConsumed = PromoCodes.consumedAt.isNull()
         val counts = PromoCodes.select(PromoCodes.batchId, notConsumed, count)
@@ -108,9 +113,36 @@ class BatchRepository(private val db: Database, private val clock: Clock = Clock
         batches.map { batch ->
             val consumed = counts[batch.id to true] ?: 0 // key: (batch id, consumed?)
             val remaining = counts[batch.id to false] ?: 0
-            val stats = if (batch.isExpired(now)) Stats(0, consumed, remaining) else Stats(remaining, consumed, 0)
-            BatchWithStats(batch, stats)
+            BatchWithStats(batch, statsOf(batch, consumed, remaining, now))
         }
+    }
+
+    /**
+     * Invalidates a batch: its remaining codes are never handed out, and users no longer see it.
+     * Codes already handed out are not affected. Invalidating an invalidated batch again changes
+     * nothing (the first time is kept). Returns the batch with its statistics, or `null` if the app
+     * has no such batch.
+     */
+    fun invalidate(appId: Long, batchId: Long): BatchWithStats? = transaction(db) {
+        val now = clock.now()
+        val ofApp = (CodeBatches.id eq batchId) and (CodeBatches.appId eq appId)
+        // Like a hand-out, this is a write transaction (BEGIN IMMEDIATE), so the two never interleave:
+        // a code is either handed out before the batch is invalidated or not at all.
+        CodeBatches.update({ ofApp and CodeBatches.invalidatedAt.isNull() }) {
+            it[invalidatedAt] = now.toEpochMilliseconds()
+        }
+        val batch = CodeBatches.selectAll().where(ofApp).singleOrNull()?.toBatch() ?: return@transaction null
+        val consumed = PromoCodes.select(PromoCodes.id)
+            .where { (PromoCodes.batchId eq batchId) and PromoCodes.consumedAt.isNotNull() }.count().toInt()
+        val remaining = PromoCodes.select(PromoCodes.id)
+            .where { (PromoCodes.batchId eq batchId) and PromoCodes.consumedAt.isNull() }.count().toInt()
+        BatchWithStats(batch, statsOf(batch, consumed, remaining, now))
+    }
+
+    private fun statsOf(batch: Batch, consumed: Int, remaining: Int, now: Instant) = when {
+        batch.isInvalidated -> Stats(available = 0, consumed = consumed, expired = 0, invalidated = remaining)
+        batch.isExpired(now) -> Stats(available = 0, consumed = consumed, expired = remaining)
+        else -> Stats(available = remaining, consumed = consumed, expired = 0)
     }
 
     private fun ResultRow.toBatch() = Batch(
@@ -119,6 +151,7 @@ class BatchRepository(private val db: Database, private val clock: Clock = Clock
         description = this[CodeBatches.description],
         expiresAt = Instant.fromEpochMilliseconds(this[CodeBatches.expiresAt]),
         createdAt = Instant.fromEpochMilliseconds(this[CodeBatches.createdAt]),
+        invalidatedAt = this[CodeBatches.invalidatedAt]?.let(Instant::fromEpochMilliseconds),
     )
 }
 

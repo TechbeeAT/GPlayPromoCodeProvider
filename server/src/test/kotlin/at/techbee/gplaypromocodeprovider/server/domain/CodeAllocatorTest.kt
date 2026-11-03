@@ -85,6 +85,32 @@ class CodeAllocatorTest {
     }
 
     @Test
+    fun invalidatedBatchHandsOutNothing() {
+        val batch = upload(listOf("A", "B", "C"))
+        allocator.handOut(app.id, batch.id)
+
+        batches.invalidate(app.id, batch.id)
+
+        assertEquals(HandOutResult.NoCodeAvailable, allocator.handOut(app.id, batch.id))
+        assertEquals(Stats(available = 0, consumed = 1, expired = 0, invalidated = 2), statsOf(batch))
+    }
+
+    @Test
+    fun invalidatingDuringParallelRequestsNeverHandsOutAfterwards() = runBlocking {
+        val batch = upload(List(200) { "CODE-$it" })
+
+        val requests = List(100) { async(Dispatchers.IO) { allocator.handOut(app.id, batch.id) } }
+        val invalidated = async(Dispatchers.IO) { batches.invalidate(app.id, batch.id)!! }
+        val results = requests.awaitAll()
+
+        // Every code is counted exactly once: handed out before the invalidation, or invalidated.
+        val handedOut = results.count { it is HandOutResult.Success }
+        assertEquals(handedOut, invalidated.await().stats.consumed)
+        assertEquals(Stats(available = 0, consumed = handedOut, expired = 0, invalidated = 200 - handedOut), statsOf(batch))
+        assertEquals(HandOutResult.NoCodeAvailable, allocator.handOut(app.id, batch.id))
+    }
+
+    @Test
     fun parallelRequestsNeverGetTheSameCode() = runBlocking {
         val batch = upload(List(50) { "CODE-$it" })
 

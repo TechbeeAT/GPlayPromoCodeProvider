@@ -48,13 +48,14 @@ internal fun LoadFailedMessage(title: String, error: ActionError, onRetry: () ->
     }
 }
 
-/** Available, consumed and expired counts side by side. */
+/** Available, consumed and expired counts side by side, and invalidated codes if there are any. */
 @Composable
 internal fun StatsRow(stats: CodeStats, modifier: Modifier = Modifier) {
     FlowRow(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
         Stat("Available", stats.available, MaterialTheme.colorScheme.primary)
         Stat("Consumed", stats.consumed, MaterialTheme.colorScheme.onSurface)
         Stat("Expired", stats.expired, MaterialTheme.colorScheme.onSurfaceVariant)
+        if (stats.invalidated > 0) Stat("Invalidated", stats.invalidated, MaterialTheme.colorScheme.error)
     }
 }
 
@@ -79,7 +80,7 @@ internal fun CopyButton(text: String, label: String) {
 @Preview(widthDp = 400, heightDp = 100)
 @Composable
 private fun StatsRowPreview() {
-    PreviewTheme { StatsRow(CodeStats(available = 42, consumed = 7, expired = 3), Modifier.padding(16.dp)) }
+    PreviewTheme { StatsRow(CodeStats(available = 42, consumed = 7, expired = 3, invalidated = 5), Modifier.padding(16.dp)) }
 }
 
 @Preview(widthDp = 400, heightDp = 300)

@@ -22,6 +22,7 @@ import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
 import at.techbee.gplaypromocodeprovider.admin.appdetails.components.AdminBatchList
 import at.techbee.gplaypromocodeprovider.admin.appdetails.components.AdminBatchUploadCard
+import at.techbee.gplaypromocodeprovider.admin.appdetails.components.InvalidateBatchDialog
 import at.techbee.gplaypromocodeprovider.admin.appdetails.components.InviteLinkCard
 import at.techbee.gplaypromocodeprovider.admin.appdetails.components.RegenerateLinkDialog
 import at.techbee.gplaypromocodeprovider.admin.appdetails.components.inviteLink
@@ -56,6 +57,9 @@ fun AppDetailScreen(viewModel: AppDetailViewModel, origin: String, onBack: () ->
             onRegenerate = viewModel::askToRegenerateInviteLink,
             onConfirmRegenerate = viewModel::regenerateInviteLink,
             onDismissRegenerate = viewModel::cancelRegenerateInviteLink,
+            onInvalidateBatch = viewModel::askToInvalidateBatch,
+            onConfirmInvalidate = viewModel::invalidateBatch,
+            onDismissInvalidate = viewModel::cancelInvalidateBatch,
             onDescriptionChange = viewModel::setDescription,
             onExpiryDateChange = viewModel::setExpiryDate,
             isSelectableExpiryDay = viewModel::isSelectableExpiryDay,
@@ -76,6 +80,9 @@ private class AppDetailActions(
     val onRegenerate: () -> Unit = {},
     val onConfirmRegenerate: () -> Unit = {},
     val onDismissRegenerate: () -> Unit = {},
+    val onInvalidateBatch: (AdminBatch) -> Unit = {},
+    val onConfirmInvalidate: () -> Unit = {},
+    val onDismissInvalidate: () -> Unit = {},
     val onDescriptionChange: (String) -> Unit = {},
     val onExpiryDateChange: (Long?) -> Unit = {},
     val isSelectableExpiryDay: (Long) -> Boolean = { true },
@@ -108,7 +115,7 @@ private fun AppDetailPage(state: AppDetailUiState, origin: String, actions: AppD
                     onUpload = actions.onUpload,
                     onDismissResult = actions.onDismissUploadResult,
                 )
-                AdminBatchList(content.batches)
+                AdminBatchList(content.batches, actions.onInvalidateBatch)
 
                 state.editDialog?.let {
                     val app = content.app
@@ -122,6 +129,9 @@ private fun AppDetailPage(state: AppDetailUiState, origin: String, actions: AppD
                 }
                 state.regenerateDialog?.let {
                     RegenerateLinkDialog(it, onConfirm = actions.onConfirmRegenerate, onDismiss = actions.onDismissRegenerate)
+                }
+                state.invalidateDialog?.let {
+                    InvalidateBatchDialog(it, onConfirm = actions.onConfirmInvalidate, onDismiss = actions.onDismissInvalidate)
                 }
             }
         }
@@ -192,6 +202,15 @@ private fun AppDetailEditPreview() = AppDetailPreview(
 @Composable
 private fun AppDetailRegeneratePreview() = AppDetailPreview(
     AppDetailUiState(content = AppDetailContent.Loaded(previewApp, previewBatches), regenerateDialog = RegenerateDialogState()),
+)
+
+@Preview(widthDp = 600, heightDp = 800)
+@Composable
+private fun AppDetailInvalidatePreview() = AppDetailPreview(
+    AppDetailUiState(
+        content = AppDetailContent.Loaded(previewApp, previewBatches),
+        invalidateDialog = InvalidateDialogState(previewBatches.first()),
+    ),
 )
 
 @Preview(widthDp = 600, heightDp = 400)

@@ -15,6 +15,8 @@ data class AppDetailUiState(
     val editDialog: AppDialogState? = null,
     /** The confirmation for a new invite link; `null` while it is closed. */
     val regenerateDialog: RegenerateDialogState? = null,
+    /** The confirmation for invalidating a batch; `null` while it is closed. */
+    val invalidateDialog: InvalidateDialogState? = null,
     val upload: UploadFormState = UploadFormState(),
 )
 
@@ -31,6 +33,9 @@ sealed interface AppDetailContent {
 }
 
 data class RegenerateDialogState(val running: Boolean = false, val error: ActionError? = null)
+
+/** Asks before [batch] is invalidated, since that can't be undone. */
+data class InvalidateDialogState(val batch: AdminBatch, val running: Boolean = false, val error: ActionError? = null)
 
 /** The batch upload form. Kept in the view model, so it survives a login in between. */
 data class UploadFormState(

@@ -111,6 +111,13 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine? = null) : AutoCloseab
     suspend fun uploadBatch(appId: Long, request: BatchUploadRequest): ApiResult<BatchUploadResponse> =
         call(HttpMethod.Post, "admin", "apps", appId.toString(), "batches", body = request)
 
+    /**
+     * Invalidates a batch: its remaining codes are never handed out. Returns the batch with new statistics.
+     * Invalidating it again changes nothing. Unknown batch: `NOT_FOUND`.
+     */
+    suspend fun invalidateBatch(appId: Long, batchId: Long): ApiResult<AdminBatch> =
+        call(HttpMethod.Post, "admin", "apps", appId.toString(), "batches", batchId.toString(), "invalidate")
+
     override fun close() = http.close()
 
     private suspend inline fun <reified T> call(method: HttpMethod, vararg path: String): ApiResult<T> =

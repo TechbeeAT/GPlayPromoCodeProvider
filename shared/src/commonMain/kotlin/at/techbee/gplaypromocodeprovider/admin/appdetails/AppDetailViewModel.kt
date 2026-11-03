@@ -5,6 +5,7 @@ import at.techbee.gplaypromocodeprovider.admin.ActionError
 import at.techbee.gplaypromocodeprovider.admin.AdminViewModel
 import at.techbee.gplaypromocodeprovider.admin.components.AppDialogState
 import at.techbee.gplaypromocodeprovider.api.AdminApp
+import at.techbee.gplaypromocodeprovider.api.AdminBatch
 import at.techbee.gplaypromocodeprovider.api.ApiError
 import at.techbee.gplaypromocodeprovider.api.AppRequest
 import at.techbee.gplaypromocodeprovider.api.BatchUploadRequest
@@ -57,6 +58,9 @@ class AppDetailViewModel(
                 regenerateDialog = it.regenerateDialog?.let { d ->
                     if (d.error == ActionError.SessionExpired) d.copy(error = null) else d
                 },
+                invalidateDialog = it.invalidateDialog?.let { d ->
+                    if (d.error == ActionError.SessionExpired) d.copy(error = null) else d
+                },
                 upload = if (it.upload.error == ActionError.SessionExpired) it.upload.copy(error = null) else it.upload,
             )
         }
@@ -100,6 +104,33 @@ class AppDetailViewModel(
                 else -> {
                     val error = errorOf(result)
                     _state.update { it.copy(regenerateDialog = RegenerateDialogState(error = error)) }
+                }
+            }
+        }
+    }
+
+    // Invalidating a batch
+
+    fun askToInvalidateBatch(batch: AdminBatch) =
+        _state.update { it.copy(invalidateDialog = it.invalidateDialog ?: InvalidateDialogState(batch)) }
+
+    fun cancelInvalidateBatch() =
+        _state.update { if (it.invalidateDialog?.running == true) it else it.copy(invalidateDialog = null) }
+
+    /** Invalidates the batch of the open dialog after the admin confirmed. Its remaining codes are never handed out. */
+    fun invalidateBatch() {
+        val dialog = _state.value.invalidateDialog ?: return
+        if (dialog.running) return
+        _state.update { it.copy(invalidateDialog = dialog.copy(running = true, error = null)) }
+        viewModelScope.launch {
+            when (val result = api.invalidateBatch(appId, dialog.batch.id)) {
+                is ApiResult.Success -> {
+                    _state.update { it.withBatch(result.value).copy(invalidateDialog = null) }
+                    load(showLoading = false) // New statistics for the app.
+                }
+                else -> {
+                    val error = errorOf(result)
+                    _state.update { it.copy(invalidateDialog = it.invalidateDialog?.copy(running = false, error = error)) }
                 }
             }
         }
@@ -149,6 +180,11 @@ class AppDetailViewModel(
 
     private fun AppDetailUiState.withApp(app: AdminApp) =
         (content as? AppDetailContent.Loaded)?.let { copy(content = it.copy(app = app)) } ?: this
+
+    private fun AppDetailUiState.withBatch(batch: AdminBatch) =
+        (content as? AppDetailContent.Loaded)?.let { loaded ->
+            copy(content = loaded.copy(batches = loaded.batches.map { if (it.id == batch.id) batch else it }))
+        } ?: this
 
     private fun AppDialogState.clearSessionError() = if (error == ActionError.SessionExpired) copy(error = null) else this
 

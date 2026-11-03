@@ -235,6 +235,21 @@ class ApiClientTest {
     }
 
     @Test
+    fun invalidateBatchParsesTheInvalidatedBatch() = runTest {
+        val api = client {
+            json(
+                """{"id":3,"appId":1,"description":null,"expiresAt":"2027-03-01T00:00:00Z","createdAt":"2026-11-02T10:00:00Z",
+                   "stats":{"available":0,"consumed":1,"expired":0,"invalidated":2},"invalidatedAt":"2026-11-03T09:00:00Z"}""",
+            )
+        }
+
+        val batch = assertIs<ApiResult.Success<AdminBatch>>(api.invalidateBatch(1, 3)).value
+
+        assertEquals(CodeStats(available = 0, consumed = 1, expired = 0, invalidated = 2), batch.stats)
+        assertEquals(Instant.parse("2026-11-03T09:00:00Z"), batch.invalidatedAt)
+    }
+
+    @Test
     fun adminEndpointsUseTheirPaths() = runTest {
         val api = client { respond("", HttpStatusCode.InternalServerError) }
 
@@ -244,6 +259,7 @@ class ApiClientTest {
         api.updateApp(5, AppRequest("Name"))
         api.regenerateInviteToken(5)
         api.listBatches(5)
+        api.invalidateBatch(5, 7)
 
         assertEquals(
             listOf(
@@ -253,6 +269,7 @@ class ApiClientTest {
                 "PUT /api/admin/apps/5",
                 "POST /api/admin/apps/5/invite-token",
                 "GET /api/admin/apps/5/batches",
+                "POST /api/admin/apps/5/batches/7/invalidate",
             ),
             requests.map { "${it.method.value} ${it.url.encodedPath}" },
         )

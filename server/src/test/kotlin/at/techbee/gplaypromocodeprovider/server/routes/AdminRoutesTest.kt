@@ -8,6 +8,7 @@ import at.techbee.gplaypromocodeprovider.api.AppRequest
 import at.techbee.gplaypromocodeprovider.api.BatchUploadRequest
 import at.techbee.gplaypromocodeprovider.api.CodeStats
 import at.techbee.gplaypromocodeprovider.api.ErrorResponse
+import at.techbee.gplaypromocodeprovider.api.InviteResponse
 import at.techbee.gplaypromocodeprovider.api.LoginRequest
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -51,6 +52,7 @@ class AdminRoutesTest {
             contentType(ContentType.Application.Json)
             setBody(BatchUploadRequest(null, clock.now() + 1.days, "A"))
         },
+        client.post("/api/admin/apps/1/batches/1/invalidate"),
     )
 
     @Test
@@ -189,6 +191,47 @@ class AdminRoutesTest {
             setBody(BatchUploadRequest(null, clock.now() + 1.days, "A"))
         }
         assertEquals(HttpStatusCode.NotFound, upload.status)
+        assertEquals(HttpStatusCode.NotFound, client.post("/api/admin/apps/4711/batches/1/invalidate").status)
+    }
+
+    @Test
+    fun invalidatingABatchStopsHandingOutItsCodes() = apiTest {
+        login()
+        val app = createApp()
+        val batch = uploadBatch(app.id, "A\nB\nC").batch
+        val other = uploadBatch(app.id, "D").batch
+        client.post("/api/invite/${app.inviteToken}/batches/${batch.id}/code")
+
+        val response = client.post("/api/admin/apps/${app.id}/batches/${batch.id}/invalidate")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val invalidated = response.body<AdminBatch>()
+        assertEquals(clock.now(), invalidated.invalidatedAt)
+        assertEquals(CodeStats(available = 0, consumed = 1, expired = 0, invalidated = 2), invalidated.stats)
+        assertEquals(invalidated, client.get("/api/admin/apps/${app.id}/batches").body<List<AdminBatch>>().single { it.id == batch.id })
+        assertEquals(
+            CodeStats(available = 1, consumed = 1, expired = 0, invalidated = 2),
+            client.get("/api/admin/apps/${app.id}").body<AdminApp>().stats,
+        )
+        val invite = client.get("/api/invite/${app.inviteToken}").body<InviteResponse>()
+        assertEquals(listOf(other.id), invite.batches.map { it.id })
+        val code = client.post("/api/invite/${app.inviteToken}/batches/${batch.id}/code")
+        assertEquals(HttpStatusCode.Conflict, code.status)
+    }
+
+    @Test
+    fun batchOfAnotherAppCannotBeInvalidated() = apiTest {
+        login()
+        val app = createApp("App")
+        val other = createApp("Other")
+        val otherBatch = uploadBatch(other.id, "A").batch
+
+        for (path in listOf("${app.id}/batches/${otherBatch.id}", "${app.id}/batches/4711", "${app.id}/batches/abc")) {
+            assertEquals(HttpStatusCode.NotFound, client.post("/api/admin/apps/$path/invalidate").status, path)
+        }
+        val stillValid = client.get("/api/admin/apps/${other.id}/batches").body<List<AdminBatch>>().single()
+        assertEquals(null, stillValid.invalidatedAt)
+        assertEquals(1, stillValid.stats.available)
     }
 
     @Test

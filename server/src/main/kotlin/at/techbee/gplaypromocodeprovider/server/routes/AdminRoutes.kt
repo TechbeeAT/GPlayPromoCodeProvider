@@ -117,6 +117,13 @@ fun Route.adminRoutes(config: ServerConfig, apps: AppRepository, batches: BatchR
                             UploadResult.AppNotFound -> call.respondNotFound()
                         }
                     }
+
+                    post("/batches/{batchId}/invalidate") {
+                        val appId = call.parameters["appId"]?.toLongOrNull() ?: return@post call.respondNotFound()
+                        val batchId = call.parameters["batchId"]?.toLongOrNull() ?: return@post call.respondNotFound()
+                        val batch = batches.invalidate(appId, batchId) ?: return@post call.respondNotFound()
+                        call.respond(batch.toAdminBatch())
+                    }
                 }
             }
         }
@@ -125,9 +132,9 @@ fun Route.adminRoutes(config: ServerConfig, apps: AppRepository, batches: BatchR
 
 private fun BatchRepository.statsOf(appId: Long) = listWithStats(appId).fold(Stats.ZERO) { sum, b -> sum + b.stats }
 
-private fun Stats.toCodeStats() = CodeStats(available, consumed, expired)
+private fun Stats.toCodeStats() = CodeStats(available, consumed, expired, invalidated)
 
 private fun App.toAdminApp(stats: Stats) = AdminApp(id, name, packageName, description, inviteToken, stats.toCodeStats())
 
 private fun BatchWithStats.toAdminBatch() =
-    AdminBatch(batch.id, batch.appId, batch.description, batch.expiresAt, batch.createdAt, stats.toCodeStats())
+    AdminBatch(batch.id, batch.appId, batch.description, batch.expiresAt, batch.createdAt, stats.toCodeStats(), batch.invalidatedAt)

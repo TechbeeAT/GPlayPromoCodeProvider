@@ -3,6 +3,7 @@ package at.techbee.gplaypromocodeprovider.admin
 import at.techbee.gplaypromocodeprovider.admin.appdetails.AppDetailContent
 import at.techbee.gplaypromocodeprovider.admin.appdetails.AppDetailUiState
 import at.techbee.gplaypromocodeprovider.admin.appdetails.AppDetailViewModel
+import at.techbee.gplaypromocodeprovider.admin.appdetails.InvalidateDialogState
 import at.techbee.gplaypromocodeprovider.admin.appdetails.RegenerateDialogState
 import at.techbee.gplaypromocodeprovider.admin.appdetails.UploadFormState
 import at.techbee.gplaypromocodeprovider.admin.appdetails.countCodes
@@ -148,6 +149,67 @@ class AppDetailViewModelTest {
 
         vm.await { it.regenerateDialog == RegenerateDialogState(error = ActionError.Network) }
         assertEquals("tok", (vm.state.value.content as AppDetailContent.Loaded).app.inviteToken)
+    }
+
+    @Test
+    fun invalidatingABatchReplacesItAndReloadsTheStatistics() = runTest {
+        var invalidated = false
+        val server = server(
+            app = { appJson(available = if (invalidated) 0 else 2) },
+            batches = { "[${if (invalidated) invalidatedBatchJson() else batchJson()}]" },
+            other = { invalidated = true; json(invalidatedBatchJson()) },
+        )
+        val vm = viewModel(server)
+        val batch = vm.awaitLoaded().batches.single()
+
+        vm.askToInvalidateBatch(batch)
+        assertEquals(InvalidateDialogState(batch), vm.state.value.invalidateDialog)
+        vm.invalidateBatch()
+        vm.await { it.invalidateDialog == null }
+        val loaded = vm.awaitLoaded()
+
+        assertEquals(Instant.parse("2026-11-03T09:00:00Z"), loaded.batches.single().invalidatedAt)
+        assertEquals(2, loaded.batches.single().stats.invalidated)
+        assertEquals(0, loaded.app.stats.available)
+        assertEquals(1, server.count(HttpMethod.Post, "/api/admin/apps/1/batches/5/invalidate"))
+    }
+
+    @Test
+    fun batchIsOnlyInvalidatedAfterConfirmation() = runTest {
+        val server = server()
+        val vm = viewModel(server)
+        val batch = vm.awaitLoaded().batches.single()
+
+        vm.invalidateBatch() // Not asked yet: ignored.
+        vm.askToInvalidateBatch(batch)
+        vm.cancelInvalidateBatch()
+        vm.invalidateBatch() // Cancelled: ignored.
+
+        assertEquals(0, server.requests.count { it.method == HttpMethod.Post })
+        assertNull(vm.state.value.invalidateDialog)
+    }
+
+    @Test
+    fun failedInvalidationStaysInTheDialogAndCanBeRetriedAfterLogin() = runTest {
+        var loggedIn = false
+        val server = server(other = {
+            if (loggedIn) json(invalidatedBatchJson()) else error(HttpStatusCode.Unauthorized, "unauthorized")
+        })
+        val vm = viewModel(server)
+        val batch = vm.awaitLoaded().batches.single()
+
+        vm.askToInvalidateBatch(batch)
+        vm.invalidateBatch()
+        vm.await { it.invalidateDialog == InvalidateDialogState(batch, error = ActionError.SessionExpired) }
+        assertEquals(1, sessionExpiredCalls)
+        assertNull((vm.state.value.content as AppDetailContent.Loaded).batches.single().invalidatedAt)
+
+        loggedIn = true
+        vm.resumeAfterLogin()
+        assertEquals(InvalidateDialogState(batch), vm.state.value.invalidateDialog)
+        vm.invalidateBatch()
+
+        vm.await { it.invalidateDialog == null }
     }
 
     @Test

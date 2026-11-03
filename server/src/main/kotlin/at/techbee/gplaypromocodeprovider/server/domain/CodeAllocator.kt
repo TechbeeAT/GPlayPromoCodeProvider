@@ -12,7 +12,7 @@ import kotlin.time.Clock
 
 sealed interface HandOutResult {
     data class Success(val code: String) : HandOutResult
-    /** The batch belongs to the app but has no available, non-expired code. */
+    /** The batch belongs to the app but has no available code, or is expired or invalidated. */
     data object NoCodeAvailable : HandOutResult
     /** There is no such batch for this app. */
     data object BatchNotFound : HandOutResult
@@ -24,7 +24,7 @@ class CodeAllocator(private val db: Database, private val clock: Clock = Clock.S
     fun handOut(appId: Long, batchId: Long): HandOutResult = transaction(db) {
         val now = clock.now().toEpochMilliseconds()
         val long = LongColumnType()
-        // Picks an available code of a non-expired batch and marks it consumed in a single
+        // Picks an available code of a valid, non-expired batch and marks it consumed in a single
         // statement, so two requests can never get the same code. The outer
         // `consumed_at IS NULL` makes the UPDATE conditional on the code still being available.
         val code = exec(
@@ -32,7 +32,8 @@ class CodeAllocator(private val db: Database, private val clock: Clock = Clock.S
             UPDATE promo_code SET consumed_at = ?
             WHERE consumed_at IS NULL AND id = (
                 SELECT c.id FROM promo_code c JOIN code_batch b ON b.id = c.batch_id
-                WHERE c.batch_id = ? AND b.app_id = ? AND b.expires_at > ? AND c.consumed_at IS NULL
+                WHERE c.batch_id = ? AND b.app_id = ? AND b.expires_at > ? AND b.invalidated_at IS NULL
+                    AND c.consumed_at IS NULL
                 LIMIT 1
             )
             RETURNING code
