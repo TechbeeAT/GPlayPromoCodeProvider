@@ -226,6 +226,12 @@ private fun UploadFilledPreview() = UploadPreview(
     UploadFormState(description = "Beta wave 2", expiryDateMillis = previewDay, codes = "AAAA1111\nBBBB2222\n\nCCCC3333\n"),
 )
 
+@Preview(widthDp = 600, heightDp = 500)
+@Composable
+private fun UploadingPreview() = UploadPreview(
+    UploadFormState(description = "Beta wave 2", expiryDateMillis = previewDay, codes = "AAAA1111\nBBBB2222", uploading = true),
+)
+
 @Preview(widthDp = 600, heightDp = 550)
 @Composable
 private fun UploadErrorPreview() = UploadPreview(

@@ -64,7 +64,7 @@ fun AdminArea(route: Route.Admin, api: ApiClient, origin: String, navigate: (Rou
 
     when (val s = state) {
         AdminSessionState.Checking -> LoadingBox()
-        is AdminSessionState.CheckFailed -> AdminColumn { LoadFailedMessage("Couldn't open the admin area", s.error, session::retry) }
+        is AdminSessionState.CheckFailed -> SessionCheckFailed(s.error, session::retry)
         is AdminSessionState.LoggedOut -> LoginScreen(s, session::login)
         is AdminSessionState.LoggedIn -> Column(Modifier.fillMaxSize()) {
             AdminBar(s, onLogout = session::logout, onDismissLogoutError = session::dismissLogoutError)
@@ -85,6 +85,11 @@ fun AdminArea(route: Route.Admin, api: ApiClient, origin: String, navigate: (Rou
             }
         }
     }
+}
+
+@Composable
+private fun SessionCheckFailed(error: ActionError, onRetry: () -> Unit) {
+    AdminColumn { LoadFailedMessage("Couldn't open the admin area", error, onRetry) }
 }
 
 /** Holds the view models of one admin page. */
@@ -134,4 +139,18 @@ private fun AdminBarLogoutFailedPreview() {
     PreviewTheme {
         AdminBar(AdminSessionState.LoggedIn("admin", logoutError = ActionError.Network), onLogout = {}, onDismissLogoutError = {})
     }
+}
+
+// The session check's states (the login form has its own previews in login/LoginScreen.kt).
+
+@Preview(widthDp = 600, heightDp = 300)
+@Composable
+private fun SessionCheckingPreview() {
+    PreviewTheme { LoadingBox() }
+}
+
+@Preview(widthDp = 600, heightDp = 300)
+@Composable
+private fun SessionCheckFailedPreview() {
+    PreviewTheme { SessionCheckFailed(ActionError.Network, onRetry = {}) }
 }

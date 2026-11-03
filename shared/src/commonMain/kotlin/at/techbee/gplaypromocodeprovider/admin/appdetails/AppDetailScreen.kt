@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -87,6 +88,10 @@ private class AppDetailActions(
 private fun AppDetailPage(state: AppDetailUiState, origin: String, actions: AppDetailActions) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TextButton(onClick = actions.onBack) { Text("← All apps") }
+        // Reloading in the background, e.g. the statistics after an upload; the old values stay visible.
+        if (state.refreshing && state.content is AppDetailContent.Loaded) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
         when (val content = state.content) {
             AppDetailContent.Loading -> LoadingBox()
             AppDetailContent.NotFound -> Text("This app doesn't exist.", style = MaterialTheme.typography.headlineSmall)
@@ -187,4 +192,10 @@ private fun AppDetailEditPreview() = AppDetailPreview(
 @Composable
 private fun AppDetailRegeneratePreview() = AppDetailPreview(
     AppDetailUiState(content = AppDetailContent.Loaded(previewApp, previewBatches), regenerateDialog = RegenerateDialogState()),
+)
+
+@Preview(widthDp = 600, heightDp = 400)
+@Composable
+private fun AppDetailRefreshingPreview() = AppDetailPreview(
+    AppDetailUiState(content = AppDetailContent.Loaded(previewApp, previewBatches), refreshing = true),
 )
