@@ -101,7 +101,7 @@ for attempt in $(seq 1 "$max_attempts"); do
     echo "Cloud session setup complete: JDK 21, Gradle and npm dependencies, CHROME_BIN; :shared:jsTest, :shared:wasmJsTest, :api:jvmTest and :server:test pass."
     exit 0
   fi
-  if ! grep -qE 'status code (429|5[0-9][0-9])|Could not (GET|HEAD) |Connection (reset|refused)|(Read|connect) timed out|Network is unreachable|Temporary failure in name resolution|Remote host terminated the handshake' "$log"; then
+  if ! grep -qE 'status code (429|5[0-9][0-9])|Could not (GET|HEAD) |Connection (reset|refused)|(Read|connect) timed out|Network is unreachable|Temporary failure in name resolution|Remote host terminated the handshake|could not resolve plugin artifact' "$log"; then
     echo "Gradle warm-up failed (not a network error, not retrying)." >&2
     exit 1
   fi
