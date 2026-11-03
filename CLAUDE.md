@@ -40,15 +40,15 @@ deciding them.
 | Module | Purpose |
 |--------|---------|
 | `api` | `@Serializable` DTOs of the REST API, shared by server and web app. Only depends on kotlinx.serialization (no Compose). Targets: `jvm`, `js`, `wasmJs`. |
-| `shared` | Compose UI, view models and the API client (`client.ApiClient`, Ktor client). Depends on `api`. Targets: `js`, `wasmJs`. |
-| `webApp` | Web entry point (`main.kt` → `ComposeViewport { App() }`), `index.html`, CSS. |
+| `shared` | Compose UI, view models and the API client (`client.ApiClient`, Ktor client). Depends on `api`. Targets: `js`, `wasmJs`. `App` picks the screen from the URL path (`Route`); one package per screen (`invite`). Browser-only code (e.g. `js()` interop) goes into `webMain`. |
+| `webApp` | Web entry point (`main.kt` → `ComposeViewport { App(path, origin) }`), `index.html`, CSS, dev server config (`webpack.config.d`: port 8081, `/api` proxy, `index.html` for every path). |
 | `server` | Ktor REST API (Kotlin/JVM), SQLite persistence via Exposed, admin authentication. Will also serve the web app (step #7). |
 
 ## Commands
 
 ```bash
-./gradlew :webApp:wasmJsBrowserDevelopmentRun   # run the web app (Wasm)
-./gradlew :webApp:jsBrowserDevelopmentRun       # run the web app (JS)
+./gradlew :webApp:wasmJsBrowserDevelopmentRun   # run the web app (Wasm) on :8081, /api proxied to :8080
+./gradlew :webApp:jsBrowserDevelopmentRun       # run the web app (JS) on :8081, /api proxied to :8080
 ./gradlew :shared:wasmJsTest                    # tests (Wasm)
 ./gradlew :shared:jsTest                        # tests (JS)
 ./gradlew :api:jvmTest                          # API model tests (JVM)
@@ -116,6 +116,8 @@ When a new module or test task is added, add it to the warm-up in the hook.
 ## Conventions
 
 - Put shared models and API contracts in `api/commonMain` so that client and server can't drift apart.
+- Screens get their state from a view model (`androidx.lifecycle.ViewModel`) exposing one immutable UI state as a
+  `StateFlow`; view models are unit tested against `MockEngine` with `Dispatchers.setMain`.
 - The web app talks to the server only through `ApiClient`. Handle every `ApiResult` case in the UI
   (`Failure` by its `ApiError`, `NetworkError`); the client never throws except on cancellation.
 - Keep business logic (code allocation, validation) out of Ktor routes and Compose UI, in plain
