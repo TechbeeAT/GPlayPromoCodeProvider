@@ -11,6 +11,11 @@
 FROM eclipse-temurin:21-jdk-noble AS build
 WORKDIR /src
 
+# Node.js (downloaded by Gradle for the web build) needs libatomic, which the slim base image lacks.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libatomic1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # The sources (.dockerignore keeps the host's build outputs, caches and databases out).
 COPY . .
 
