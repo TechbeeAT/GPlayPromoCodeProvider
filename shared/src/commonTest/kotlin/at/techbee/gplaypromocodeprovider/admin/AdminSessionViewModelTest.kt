@@ -3,6 +3,7 @@ package at.techbee.gplaypromocodeprovider.admin
 import at.techbee.gplaypromocodeprovider.admin.session.AdminSessionState
 import at.techbee.gplaypromocodeprovider.admin.session.AdminSessionViewModel
 import at.techbee.gplaypromocodeprovider.admin.session.LoginError
+import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +58,14 @@ class AdminSessionViewModelTest {
         vm.retry()
 
         vm.await { it is AdminSessionState.LoggedOut }
+    }
+
+    @Test
+    fun serverBehindTheDevServerNotRunningIsANetworkError() = runTest {
+        // The dev server's proxy answers 502 (or 504) with an HTML page when nothing listens on :8080.
+        val vm = AdminSessionViewModel(MockServer { respond("Bad Gateway", HttpStatusCode.BadGateway) }.api)
+
+        vm.await { it == AdminSessionState.CheckFailed(ActionError.Network) }
     }
 
     @Test

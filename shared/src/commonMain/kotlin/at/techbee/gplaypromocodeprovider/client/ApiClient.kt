@@ -169,6 +169,10 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine? = null) : AutoCloseab
         } catch (_: Throwable) {
             null // Not an ErrorResponse, e.g. an error page of a proxy.
         }
+        if (errorBody == null && status.value in GATEWAY_ERRORS) {
+            // A proxy in front of the server (the dev server, Fly.io) answered: the server itself didn't.
+            return ApiResult.NetworkError(ServerUnreachableException(status.value))
+        }
         return ApiResult.Failure(
             status = status.value,
             error = errorBody?.error ?: fallbackError(status),
@@ -185,6 +189,12 @@ internal val apiJson = Json {
     ignoreUnknownKeys = true
     coerceInputValues = true
 }
+
+/** Bad gateway, service unavailable, gateway timeout: what a proxy answers when the server behind it is down. */
+private val GATEWAY_ERRORS = 502..504
+
+/** Cause of an [ApiResult.NetworkError] when a proxy answered with [status] because the server didn't. */
+class ServerUnreachableException(val status: Int) : Exception("The server can't be reached (HTTP $status from a proxy)")
 
 /** The body is there but isn't what was expected (not JSON, or JSON of another shape). */
 private fun Throwable.isUnreadableBody() =

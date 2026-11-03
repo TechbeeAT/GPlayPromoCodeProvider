@@ -104,7 +104,9 @@ Errors are `{"error": "<code>", "message": "..."}`, where `error` is the `ApiErr
 (`not_found`, `no_code_available`, `invalid_request`, `unauthorized`, `internal_error`). Clients should
 parse with `coerceInputValues = true`, so a code they don't know yet becomes `unknown` instead of
 failing; the web app's API client does this. If an error body isn't an `ErrorResponse` (e.g. a proxy's error
-page), the client derives the code from the status (`400`, `401`, `404`, `5xx`; otherwise `unknown`).
+page), the client derives the code from the status (`400`, `401`, `404`, `5xx`; otherwise `unknown`). A `502`, `503` or
+`504` without an `ErrorResponse` comes from a proxy whose server is down (the dev server without `:server:run`, Fly.io's
+proxy), so the web app treats it as a network error: "The server can't be reached".
 
 User endpoints (scoped by the invite token; an unknown token, an unknown batch and a batch of another
 app all give the same `404`):

@@ -129,12 +129,33 @@ class ApiClientTest {
     @Test
     fun errorWithoutErrorResponseBodyIsDerivedFromTheStatus() = runTest {
         val api = client {
-            respond("<html>Bad Gateway</html>", HttpStatusCode.BadGateway, headersOf(HttpHeaders.ContentType, "text/html"))
+            respond("<html>Internal error</html>", HttpStatusCode.InternalServerError, headersOf(HttpHeaders.ContentType, "text/html"))
         }
 
         val result = api.getInvite("tok")
 
-        assertEquals(ApiResult.Failure(502, ApiError.INTERNAL, "HTTP 502"), result)
+        assertEquals(ApiResult.Failure(500, ApiError.INTERNAL, "HTTP 500"), result)
+    }
+
+    @Test
+    fun gatewayErrorOfAProxyMeansTheServerCantBeReached() = runTest {
+        for (status in listOf(HttpStatusCode.BadGateway, HttpStatusCode.ServiceUnavailable, HttpStatusCode.GatewayTimeout)) {
+            val api = client { respond("<html>Bad Gateway</html>", status, headersOf(HttpHeaders.ContentType, "text/html")) }
+
+            val result = api.getInvite("tok")
+
+            assertIs<ApiResult.NetworkError>(result)
+            assertEquals(status.value, assertIs<ServerUnreachableException>(result.cause).status)
+        }
+    }
+
+    @Test
+    fun gatewayStatusWithAnErrorResponseFromTheServerStaysAFailure() = runTest {
+        val api = client { json("""{"error":"internal_error","message":"Maintenance"}""", HttpStatusCode.ServiceUnavailable) }
+
+        val result = api.getInvite("tok")
+
+        assertEquals(ApiResult.Failure(503, ApiError.INTERNAL, "Maintenance"), result)
     }
 
     @Test
