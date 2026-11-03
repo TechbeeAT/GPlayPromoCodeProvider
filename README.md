@@ -69,8 +69,7 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Expiry | A batch's `expiresAt` is an exact instant (UTC). From that instant on, its remaining codes count as expired. The admin UI will turn a picked date into an instant. |
 | API client | `ApiClient` in `shared` (package `client`), on the Ktor client with the browser's `fetch` for JS and Wasm. Every call returns an `ApiResult` (`Success`, `Failure` with status and `ApiError`, `NetworkError`) instead of throwing, so the UI has to handle each case. JSON is parsed leniently (`ignoreUnknownKeys`, `coerceInputValues`), so an older web app keeps working against a newer server. Path segments are encoded including `/`, so an invite token can't change the request path. |
 | Invite page | The web app picks its screen from the URL path (`/invite/<token>`; anything else shows a short home page). There is no in-app navigation, so a deep link and a page reload behave the same. The page lists the app's batches, hands out a code per "Get code" tap, and shows the code with "Copy code" and "Redeem on Google Play". The codes received on the page stay listed (newest first, also if the link stops working meanwhile), but only until the page is closed or reloaded. After every request the batch list is refreshed, so a batch that just ran out disappears. |
-| Compose previews | `shared` has a `jvm` target only for development: the IDE renders `@Preview`s with it, the tests also run fast on the JVM, and Compose Hot Reload runs on it (see below). There is no desktop app to ship. Browser-only code (date formatting, clipboard entry) is `expect`/`actual` with a JVM version in `jvmMain`. |
-| Hot reload | [Compose Hot Reload](https://github.com/JetBrains/compose-hot-reload), bundled with the Compose Multiplatform Gradle plugin, shows `App` in a dev-only desktop window (`shared/src/jvmMain/.../DevMain.kt`) that updates on every save, keeping its state. It needs the JetBrains Runtime 25, which the plugin downloads automatically (`compose.reload.jbr.autoProvisioningEnabled` in `gradle.properties`). The window talks to the real server over the JVM's Ktor client (CIO). It keeps no cookies, so admin screens (step #6) will need Ktor's `HttpCookies` in the JVM client to be tried there. The browser stays the reference: check layout and browser-only behaviour (fonts, clipboard, `Intl` dates) there. |
+| Compose previews | `shared` has a `jvm` target only so the IDE can render `@Preview`s (and the tests also run fast on the JVM). There is no desktop app. Browser-only code (date formatting, clipboard entry) is `expect`/`actual` with a JVM version in `jvmMain`. |
 | Codes left per batch | Not shown to users. The invite API sends no counts, so a link holder learns nothing about volumes. |
 | Dates in the user UI | Shown in the browser's time zone as English date and 24-hour time ("31 Jan 2027, 23:59"), formatted by the browser (`Intl`), so daylight saving time is right. |
 | Upload rules | Codes are unique per app (the same code may exist in two different apps). Duplicates, against existing codes of the app or within the upload, are skipped and returned to the admin. An upload with no new code, an expiry date in the past, or a code longer than 128 characters is rejected. At most 10,000 codes per upload. |
@@ -138,8 +137,7 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
     UI state; its building blocks such as the batch list and the code card in `invite/components`).
     `PreviewTheme` wraps every `@Preview`.
   - [`webMain`](./shared/src/webMain/kotlin): code for the browser targets (JS and Wasm) only, e.g. date formatting with `Intl`.
-  - [`jvmMain`](./shared/src/jvmMain/kotlin): the JVM versions of that code, for the IDE's Compose previews, and
-    `DevMain.kt`, the dev window for Compose Hot Reload.
+  - [`jvmMain`](./shared/src/jvmMain/kotlin): the JVM versions of that code, for the IDE's Compose previews.
   - [`commonTest`](./shared/src/commonTest/kotlin): tests, run in a headless browser for both JS and Wasm.
     The API client is tested against Ktor's `MockEngine`.
 - [`/webApp`](./webApp/src): the web entry point (`main.kt`, `index.html`, styles). `webpack.config.d` configures
@@ -174,24 +172,6 @@ curl -b cookies -H 'Content-Type: application/json' -d '{"description":"Beta","e
 ```
 
 The second call returns the app's `inviteToken`.
-
-### Hot reload (JVM)
-
-For quick UI work, run the app in a desktop window with [Compose Hot Reload](https://github.com/JetBrains/compose-hot-reload):
-code changes show up a second or two after saving, without a reload and without losing state (e.g. a code
-you just requested stays on screen).
-
-```bash
-APP_PATH=/invite/<token> ./gradlew :shared:hotRunJvm
-```
-
-- `APP_PATH`: the URL path to open (default `/`, the home page).
-- `API_ORIGIN`: the server's origin (default `http://localhost:8080`; start the server first).
-- In IntelliJ IDEA or Android Studio with the Kotlin Multiplatform plugin, you can also click the run icon next to
-  `main` in `DevMain.kt` and pick the hot reload option. A single `@Composable` can be run with
-  `./gradlew :shared:hotDevJvm --className=<fully qualified class> --funName=<function>`.
-- The first run downloads the JetBrains Runtime 25 (from `cache-redirector.jetbrains.com`) into Gradle's cache. Claude Code
-  cloud sessions can't reach that host with the default network policy, so hot reload doesn't work there.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
