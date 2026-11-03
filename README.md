@@ -133,7 +133,9 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
 - [`/api`](./api/src/commonMain/kotlin): the REST API models, shared by server and web app.
 - [`/shared`](./shared/src): code shared by the Compose Multiplatform apps (UI, view models).
   - [`commonMain`](./shared/src/commonMain/kotlin): code common to all targets: the app shell (`App.kt`,
-    picks the screen by `Route`), the API client (`client`) and the invite page (`invite`: screen, view model, UI state).
+    picks the screen by `Route`), the API client (`client`) and the invite page (`invite`: screen, view model,
+    UI state; its building blocks such as the batch list and the code card in `invite/components`).
+    `PreviewTheme` wraps every `@Preview`.
   - [`webMain`](./shared/src/webMain/kotlin): code for the browser targets (JS and Wasm) only, e.g. date formatting with `Intl`.
   - [`jvmMain`](./shared/src/jvmMain/kotlin): the JVM versions of that code, for the IDE's Compose previews.
   - [`commonTest`](./shared/src/commonTest/kotlin): tests, run in a headless browser for both JS and Wasm.
@@ -222,13 +224,14 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
   session cookie).
 - **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing.
   The invite endpoints could be rate-limited too.
-- **Suggestion**: received codes are lost when the user reloads or closes the invite page (the page says so).
-  Keeping them in the browser's `localStorage` per invite token would make that safer.
-- **Suggestion**: Compose for Web has no monospace font built in, so codes are shown in the default font, where
-  `O`/`0` and `I`/`l` can look alike. Bundling a monospace font (Compose resources) would help users typing a code by hand.
-- **Note**: Compose draws onto a canvas, so the page has no DOM text. The UI was tested end to end with Playwright
-  screenshots and clicks at coordinates; the view model is unit tested. Accessibility (screen readers) of Compose for
-  Web is worth a look before a public launch.
+- **Accepted for now** (decided after step #5, no action planned):
+  - Received codes are lost when the user reloads or closes the invite page (the page says so). Keeping them in
+    the browser's `localStorage` per invite token would make that safer.
+  - Compose for Web has no monospace font built in, so codes are shown in the default font, where `O`/`0` and
+    `I`/`l` can look alike. Bundling a monospace font (Compose resources) would help users typing a code by hand.
+  - Compose draws onto a canvas, so the page has no DOM text. The UI was tested end to end with Playwright
+    screenshots and clicks at coordinates; the view model is unit tested. Screen reader support of Compose for Web
+    has not been checked.
 - **Suggestion**: deleting apps and batches is not part of the API yet.
 - **Decision**: `server/.../db/Tables.kt` mirrors the SQL in `Migrations.kt` by hand; nothing checks
   that they match (the tests only catch mismatches in columns they use). Fine at three tables and with

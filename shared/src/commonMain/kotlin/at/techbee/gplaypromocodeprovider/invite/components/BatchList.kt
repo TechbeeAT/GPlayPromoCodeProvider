@@ -10,19 +10,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.api.AvailableBatch
 import at.techbee.gplaypromocodeprovider.invite.formatDateTime
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
+import at.techbee.gplaypromocodeprovider.PreviewTheme
+import kotlin.time.Instant
 
 @Composable
 internal fun BatchList(
@@ -53,7 +52,7 @@ internal fun BatchList(
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(batch.description ?: "Promo codes", style = MaterialTheme.typography.titleMedium)
                     Text("Valid until ${formatDateTime(batch.expiresAt)}", style = MaterialTheme.typography.bodyMedium)
-                    TextButton(
+                    Button(
                         onClick = { onRequestCode(batch.id) },
                         enabled = enabled,
                         modifier = Modifier.fillMaxWidth(),
@@ -64,7 +63,12 @@ internal fun BatchList(
                         ) {
                             Text("Get code")
                             AnimatedVisibility(requestingBatchId == batch.id) {
-                                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                                // Content color: the default (primary) would be invisible on the filled button.
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = LocalContentColor.current,
+                                    strokeWidth = 2.dp,
+                                )
                             }
                         }
                     }
@@ -74,38 +78,46 @@ internal fun BatchList(
     }
 }
 
+private val previewExpiry = Instant.parse("2027-01-31T22:59:00Z")
+
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun BatchList_Preview() {
-    BatchList(
-        batches = listOf(AvailableBatch(1, "First Batch", Clock.System.now().plus(7.days))),
-        requestingBatchId = 1,
-        enabled = true,
-        hasCode = false,
-        onRequestCode = {}
-    )
+    PreviewTheme {
+        BatchList(
+            batches = listOf(AvailableBatch(1, "First Batch", previewExpiry)),
+            requestingBatchId = 1,
+            enabled = true,
+            hasCode = false,
+            onRequestCode = {}
+        )
+    }
 }
 
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun BatchList_Has_Code_Preview() {
-    BatchList(
-        batches = listOf(AvailableBatch(1, "Second Batch", Clock.System.now().plus(7.days))),
-        requestingBatchId = 1,
-        enabled = true,
-        hasCode = true,
-        onRequestCode = {}
-    )
+    PreviewTheme {
+        BatchList(
+            batches = listOf(AvailableBatch(1, "Second Batch", previewExpiry)),
+            requestingBatchId = 1,
+            enabled = true,
+            hasCode = true,
+            onRequestCode = {}
+        )
+    }
 }
 
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun BatchList_empty_Preview() {
-    BatchList(
-        batches = emptyList(),
-        requestingBatchId = null,
-        enabled = true,
-        hasCode = true,
-        onRequestCode = {}
-    )
+    PreviewTheme {
+        BatchList(
+            batches = emptyList(),
+            requestingBatchId = null,
+            enabled = true,
+            hasCode = true,
+            onRequestCode = {}
+        )
+    }
 }
