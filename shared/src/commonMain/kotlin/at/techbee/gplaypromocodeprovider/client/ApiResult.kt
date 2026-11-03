@@ -16,7 +16,10 @@ sealed interface ApiResult<out T> {
      */
     data class Failure(val status: Int, val error: ApiError, val message: String) : ApiResult<Nothing>
 
-    /** No answer from the server: offline, server down, request blocked by the browser, ... */
+    /**
+     * No answer from the server: offline, server down, request blocked by the browser, ... Also when a
+     * proxy in front of the server answers 502, 503 or 504 without an `ErrorResponse` ([ServerUnreachableException]).
+     */
     data class NetworkError(val cause: Throwable) : ApiResult<Nothing>
 }
 

@@ -11,6 +11,6 @@ fun main() {
     // so it is never closed.
     val api = ApiClient(window.location.origin)
     ComposeViewport {
-        App(path = window.location.pathname, api = api)
+        App(path = window.location.pathname, origin = window.location.origin, api = api)
     }
 }

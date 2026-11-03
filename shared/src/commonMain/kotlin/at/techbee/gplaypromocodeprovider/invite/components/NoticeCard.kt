@@ -15,6 +15,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.invite.InviteNotice
+import at.techbee.gplaypromocodeprovider.ui.NETWORK_ERROR_TEXT
+import at.techbee.gplaypromocodeprovider.ui.SERVER_ERROR_TEXT
 
 @Composable
 internal fun NoticeCard(notice: InviteNotice, onDismiss: () -> Unit) {
@@ -22,6 +24,9 @@ internal fun NoticeCard(notice: InviteNotice, onDismiss: () -> Unit) {
         InviteNotice.BATCH_RAN_OUT -> "Sorry, that batch has just run out. Please pick another one."
         InviteNotice.BATCH_UNAVAILABLE -> "Sorry, that batch is no longer available. Please pick another one."
         InviteNotice.NETWORK_ERROR -> NETWORK_ERROR_TEXT
+        InviteNotice.NO_ANSWER ->
+            "The server didn't answer. It may have handed out a code that didn't reach you; " +
+                "that code is lost. Please try again."
         InviteNotice.SERVER_ERROR -> SERVER_ERROR_TEXT
     }
     Card(
@@ -67,5 +72,13 @@ private fun NoticeCard_Preview_SERVER_ERROR() {
 private fun NoticeCard_Preview_NETWORK_ERROR() {
     PreviewTheme {
         NoticeCard(InviteNotice.NETWORK_ERROR) {}
+    }
+}
+
+@Composable
+@Preview(widthDp = 400, heightDp = 600)
+private fun NoticeCard_Preview_NO_ANSWER() {
+    PreviewTheme {
+        NoticeCard(InviteNotice.NO_ANSWER) {}
     }
 }

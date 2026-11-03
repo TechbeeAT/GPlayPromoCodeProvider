@@ -40,8 +40,8 @@ deciding them.
 | Module | Purpose |
 |--------|---------|
 | `api` | `@Serializable` DTOs of the REST API, shared by server and web app. Only depends on kotlinx.serialization (no Compose). Targets: `jvm`, `js`, `wasmJs`. |
-| `shared` | Compose UI, view models and the API client (`client.ApiClient`, Ktor client). Depends on `api`. Targets: `js`, `wasmJs`, plus `jvm` only for the IDE's Compose previews and fast tests (there is no desktop app). `App` picks the screen from the URL path (`Route`); one package per screen (`invite`). Browser-only code (e.g. `js()` interop) goes into `webMain`, with a JVM `actual` in `jvmMain` (`expect`/`actual`). |
-| `webApp` | Web entry point (`main.kt` creates the `ApiClient` for the page's origin → `ComposeViewport { App(path, api) }`), `index.html`, CSS, dev server config (`webpack.config.d`: port 8081, `/api` proxy, `index.html` for every path). |
+| `shared` | Compose UI, view models and the API client (`client.ApiClient`, Ktor client). Depends on `api`. Targets: `js`, `wasmJs`, plus `jvm` only for the IDE's Compose previews and fast tests (there is no desktop app). `App` picks the screen from the URL path (`Route`); one package per screen (`invite`, `admin.apps`, `admin.app`; `admin.session` for login). Browser-only code (e.g. `js()` interop, `kotlinx-browser`) goes into `webMain` behind an `expect` in `platform`, with a JVM `actual` in `jvmMain`. |
+| `webApp` | Web entry point (`main.kt` creates the `ApiClient` for the page's origin → `ComposeViewport { App(path, origin, api) }`), `index.html`, CSS, dev server config (`webpack.config.d`: port 8081, `/api` proxy, `index.html` for every path). |
 | `server` | Ktor REST API (Kotlin/JVM), SQLite persistence via Exposed, admin authentication. Will also serve the web app (step #7). |
 
 ## Commands
@@ -119,6 +119,8 @@ When a new module or test task is added, add it to the warm-up in the hook.
 - Put shared models and API contracts in `api/commonMain` so that client and server can't drift apart.
 - Screens get their state from a view model (`androidx.lifecycle.ViewModel`) exposing one immutable UI state as a
   `StateFlow`; view models are unit tested against `MockEngine` with `Dispatchers.setMain`.
+- Admin page view models extend `admin.AdminViewModel`: map failures with `errorOf(result)` (which reports an ended
+  session, so the login form appears) and redo session-failed work in `onLoggedInAgain()`.
 - The web app talks to the server only through `ApiClient`. Handle every `ApiResult` case in the UI
   (`Failure` by its `ApiError`, `NetworkError`); the client never throws except on cancellation.
 - Keep business logic (code allocation, validation) out of Ktor routes and Compose UI, in plain

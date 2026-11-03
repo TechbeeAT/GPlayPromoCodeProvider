@@ -1,4 +1,4 @@
-package at.techbee.gplaypromocodeprovider.invite
+package at.techbee.gplaypromocodeprovider.platform
 
 import androidx.compose.ui.platform.ClipEntry
 

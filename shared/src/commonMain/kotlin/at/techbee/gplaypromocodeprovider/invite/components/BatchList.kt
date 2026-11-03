@@ -20,7 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.api.AvailableBatch
-import at.techbee.gplaypromocodeprovider.invite.formatDateTime
+import at.techbee.gplaypromocodeprovider.platform.formatDateTime
 import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.invite.PreviewData
 

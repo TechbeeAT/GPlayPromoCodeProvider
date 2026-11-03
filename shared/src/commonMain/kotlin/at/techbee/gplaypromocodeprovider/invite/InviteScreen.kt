@@ -24,9 +24,9 @@ import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.invite.components.BatchList
 import at.techbee.gplaypromocodeprovider.invite.components.CodeCard
 import at.techbee.gplaypromocodeprovider.invite.components.InviteMessage
-import at.techbee.gplaypromocodeprovider.invite.components.NETWORK_ERROR_TEXT
 import at.techbee.gplaypromocodeprovider.invite.components.NoticeCard
-import at.techbee.gplaypromocodeprovider.invite.components.SERVER_ERROR_TEXT
+import at.techbee.gplaypromocodeprovider.ui.NETWORK_ERROR_TEXT
+import at.techbee.gplaypromocodeprovider.ui.SERVER_ERROR_TEXT
 
 /** The page behind an invite link: the app's batches, a "Get code" button each, and the received codes. */
 @Composable

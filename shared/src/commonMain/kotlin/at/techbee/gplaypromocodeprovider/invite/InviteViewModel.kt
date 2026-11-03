@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import at.techbee.gplaypromocodeprovider.api.ApiError
 import at.techbee.gplaypromocodeprovider.client.ApiClient
 import at.techbee.gplaypromocodeprovider.client.ApiResult
+import at.techbee.gplaypromocodeprovider.client.ServerUnreachableException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,8 +65,10 @@ class InviteViewModel(private val token: String, private val api: ApiClient) : V
                     }
                     else -> _state.update { it.copy(requestingBatchId = null, notice = InviteNotice.SERVER_ERROR) }
                 }
-                is ApiResult.NetworkError ->
-                    _state.update { it.copy(requestingBatchId = null, notice = InviteNotice.NETWORK_ERROR) }
+                is ApiResult.NetworkError -> {
+                    val notice = if (result.cause is ServerUnreachableException) InviteNotice.NO_ANSWER else InviteNotice.NETWORK_ERROR
+                    _state.update { it.copy(requestingBatchId = null, notice = notice) }
+                }
             }
         }
     }
