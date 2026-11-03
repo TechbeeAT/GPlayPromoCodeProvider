@@ -6,6 +6,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.days
 
 class BatchRepositoryTest {
@@ -83,6 +85,42 @@ class BatchRepositoryTest {
         assertEquals(listOf(soon.id, later.id), batches.listAvailable(app.id).map { it.id })
         clock.advance(1.days)
         assertEquals(listOf(later.id), batches.listAvailable(app.id).map { it.id })
+    }
+
+    @Test
+    fun invalidatedBatchIsNoLongerOfferedAndCountsItsCodesAsInvalidated() {
+        val batch = assertIs<UploadResult.Created>(batches.upload(app.id, null, inAMonth, "A\nB\nC")).batch
+        val other = assertIs<UploadResult.Created>(batches.upload(app.id, null, inAMonth, "D")).batch
+        allocator.handOut(app.id, batch.id)
+
+        val result = assertNotNull(batches.invalidate(app.id, batch.id))
+
+        assertEquals(clock.now(), result.batch.invalidatedAt)
+        assertEquals(Stats(available = 0, consumed = 1, expired = 0, invalidated = 2), result.stats)
+        assertEquals(listOf(other.id), batches.listAvailable(app.id).map { it.id })
+        assertEquals(result, batches.listWithStats(app.id).single { it.batch.id == batch.id })
+        // An invalidated batch that expires meanwhile stays invalidated.
+        clock.advance(31.days)
+        assertEquals(result.stats, batches.listWithStats(app.id).single { it.batch.id == batch.id }.stats)
+    }
+
+    @Test
+    fun invalidatingAgainKeepsTheFirstTime() {
+        val batch = assertIs<UploadResult.Created>(batches.upload(app.id, null, inAMonth, "A")).batch
+        val first = assertNotNull(batches.invalidate(app.id, batch.id)).batch.invalidatedAt
+        clock.advance(1.days)
+
+        assertEquals(first, assertNotNull(batches.invalidate(app.id, batch.id)).batch.invalidatedAt)
+    }
+
+    @Test
+    fun invalidatingAnUnknownBatchOrOneOfAnotherAppFindsNothing() {
+        val other = apps.create(AppInput.of("Other app", null, null))
+        val otherBatch = assertIs<UploadResult.Created>(batches.upload(other.id, null, inAMonth, "A")).batch
+
+        assertNull(batches.invalidate(app.id, otherBatch.id))
+        assertNull(batches.invalidate(app.id, 4711))
+        assertNull(batches.listWithStats(other.id).single().batch.invalidatedAt)
     }
 
     @Test

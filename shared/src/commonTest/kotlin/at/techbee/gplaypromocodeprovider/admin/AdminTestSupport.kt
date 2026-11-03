@@ -44,6 +44,10 @@ fun appJson(id: Long = 1, name: String = "My App", token: String = "tok", availa
     """{"id":$id,"name":"$name","packageName":null,"description":null,"inviteToken":"$token",""" +
         """"stats":{"available":$available,"consumed":0,"expired":0}}"""
 
+fun invalidatedBatchJson(id: Long = 5, invalidated: Int = 2) =
+    """{"id":$id,"appId":1,"description":"Beta","expiresAt":"2027-01-31T22:59:59Z","createdAt":"2026-11-01T10:00:00Z",""" +
+        """"stats":{"available":0,"consumed":0,"expired":0,"invalidated":$invalidated},"invalidatedAt":"2026-11-03T09:00:00Z"}"""
+
 fun batchJson(id: Long = 5, available: Int = 2) =
     """{"id":$id,"appId":1,"description":"Beta","expiresAt":"2027-01-31T22:59:59Z",""" +
         """"createdAt":"2026-11-01T10:00:00Z","stats":{"available":$available,"consumed":0,"expired":0}}"""

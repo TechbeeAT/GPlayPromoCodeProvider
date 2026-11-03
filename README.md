@@ -34,20 +34,24 @@ batch and marks it as consumed. It works for **any** app: nothing is tied to a s
   - the expiration date of the codes,
   - the codes, pasted into a text field, one code per line. Many codes can be pasted at once.
     Surrounding whitespace is trimmed and blank lines are ignored.
-- See how many codes are available, consumed and expired, per app and per batch.
+- See how many codes are available, consumed, expired and invalidated, per app and per batch.
+- Invalidate a batch: all of its codes that weren't handed out yet are never handed out, at once
+  (e.g. a beta wave that should stop, or codes that leaked).
 
 ### Code lifecycle
 
 ```
-AVAILABLE ──(user requests code)──▶ CONSUMED
+AVAILABLE ──(user requests code)──────▶ CONSUMED
     │
-    └──(expiration date passes)───▶ EXPIRED (never handed out)
+    ├──(admin invalidates the batch)──▶ INVALIDATED (never handed out)
+    │
+    └──(expiration date passes)───────▶ EXPIRED (never handed out)
 ```
 
 - A code is marked **consumed** as soon as it is handed out. Whether it is actually redeemed on
   Google Play is not tracked and doesn't matter.
 - A code is handed out to exactly one request. Two parallel requests must never get the same code.
-- Expired codes are never handed out, and batches without available codes are not shown to users.
+- Expired and invalidated codes are never handed out, and batches without available codes are not shown to users.
 
 ### Decisions
 
@@ -78,6 +82,7 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Admin UI | `/admin` lists the apps, `/admin/apps/<id>` shows one app: details (editable), invite link (copy, or replace after a confirmation), the upload form and the batches. Statistics (available, consumed, expired) are shown per app and per batch. The admin pages switch without a page load (History API, so back and forward work); each page gets fresh view models, like a page load. There is no link to `/admin` from the user pages. |
 | Admin session in the UI | On opening `/admin…` the web app asks `GET /api/admin/session`; without a session it shows the login form. When any admin call answers `401` (session expired, server restarted), the login form appears, but the page's state is kept: after logging in again, the page reloads what failed, and e.g. pasted codes are still in the form. Logout clears it. |
 | Upload form | Description, an expiry day (date picker; days that have already ended can't be picked) and the codes. It counts the non-blank lines while typing. After an upload it shows the number of added codes and lists the skipped duplicates (the first 100), clears the form and reloads the statistics. |
+| Invalidating a batch | Per batch, not per code: the admin invalidates a whole batch with "Invalidate…" on the app page, after a confirmation. The batch gets an `invalidatedAt` timestamp; its codes that weren't handed out count as *invalidated* (not expired, also once the batch's expiry has passed) and are never handed out. Codes already handed out stay *consumed*. Users no longer see the batch; a code request for it answers `409 no_code_available`, like a batch that ran out. It can't be undone, and invalidating again keeps the first timestamp. Invalidating and handing out run in write transactions (`BEGIN IMMEDIATE`), so a code is either handed out before the invalidation or never. |
 | Upload rules | Codes are unique per app (the same code may exist in two different apps). Duplicates, against existing codes of the app or within the upload, are skipped and returned to the admin. An upload with no new code, an expiry date in the past, or a code longer than 128 characters is rejected. At most 10,000 codes per upload. |
 
 ---
@@ -95,10 +100,10 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 ### Domain model
 
 - **App**: `id`, `name`, `packageName?`, `description?`, `inviteToken` (unique, 32 random bytes, URL-safe Base64, regenerable), `createdAt`
-- **CodeBatch**: `id`, `appId`, `description?`, `expiresAt`, `createdAt`
+- **CodeBatch**: `id`, `appId`, `description?`, `expiresAt`, `createdAt`, `invalidatedAt?` (null while valid)
 - **PromoCode**: `id`, `appId`, `batchId`, `code` (unique per app), `consumedAt?` (null while available;
-  this replaces the separate `status` column of the first draft). "Expired" is not stored: it follows
-  from the batch's `expiresAt`.
+  this replaces the separate `status` column of the first draft). "Expired" and "invalidated" are not
+  stored per code: they follow from the batch's `expiresAt` and `invalidatedAt`.
 
 ### REST API
 
@@ -137,6 +142,7 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
 | `POST /api/admin/apps/{appId}/invite-token` | `AdminApp` with a new invite token (the old link stops working) |
 | `GET /api/admin/apps/{appId}/batches` | `AdminBatch` list with statistics, newest first |
 | `POST /api/admin/apps/{appId}/batches` | `201`, `BatchUploadResponse` (new batch, number of added codes, skipped duplicates) |
+| `POST /api/admin/apps/{appId}/batches/{batchId}/invalidate` | the invalidated `AdminBatch` with its statistics; `404` for an unknown batch or one of another app |
 
 ---
 
@@ -466,8 +472,9 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
   package parameter; Play finds the app from the code. A second button "Open in Google Play"
   (`https://play.google.com/store/apps/details?id=<packageName>`) could be shown when the app has a package name.
   That needs `packageName` in `InviteResponse`, i.e. link holders would see it.
-- **Suggestion**: deleting apps and batches is not part of the API yet. Closing a batch early (e.g. a wave that
-  should stop) would then need the API and an admin UI button.
+- **Suggestion**: deleting apps and batches is not part of the API yet. Closing a batch early is possible by
+  invalidating it. Open ideas there: undoing an invalidation, and invalidating single codes (e.g. one that leaked)
+  instead of the whole batch.
 - **Note**: the admin login form is drawn by Compose on a canvas, so browser password managers can't fill it in.
   A plain HTML login form in `index.html` (posting to `/api/admin/login`) would fix that, if it becomes annoying.
 - **Suggestion**: the admin UI has no search or paging. Fine for a handful of apps and batches; worth a look if
@@ -475,8 +482,8 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 - **Note**: the date picker starts weeks on Sunday (Material's default for the browser locale `en`). Showing
   Monday first would need a locale override.
 - **Decision**: `server/.../db/Tables.kt` mirrors the SQL in `Migrations.kt` by hand; nothing checks
-  that they match (the tests only catch mismatches in columns they use). Fine at three tables and with
-  no migrations planned. If the schema starts changing, consider a schema check test (Exposed's
+  that they match (the tests only catch mismatches in columns they use). Fine at three tables; migration 2
+  (`code_batch.invalidated_at`) was the first schema change and is covered by tests. If the schema keeps changing, consider a schema check test (Exposed's
   `exposed-migration` module) or switching to SQLDelight, whose compiler checks queries and migrations.
 
 ---

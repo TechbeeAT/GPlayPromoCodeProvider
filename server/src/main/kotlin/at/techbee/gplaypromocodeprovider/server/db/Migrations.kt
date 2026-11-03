@@ -43,6 +43,10 @@ object Migrations {
         );
         CREATE INDEX promo_code_batch_id_consumed_at ON promo_code (batch_id, consumed_at);
         """,
+        // 2: admins can invalidate a batch. NULL while the batch is valid.
+        """
+        ALTER TABLE code_batch ADD COLUMN invalidated_at INTEGER;
+        """,
     )
 
     /** Applies all pending migrations, each in its own transaction. */

@@ -20,6 +20,7 @@ object CodeBatches : Table("code_batch") {
     val description = text("description").nullable()
     val expiresAt = long("expires_at")
     val createdAt = long("created_at")
+    val invalidatedAt = long("invalidated_at").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 

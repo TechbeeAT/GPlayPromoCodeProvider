@@ -111,7 +111,7 @@ it unless `.dockerignore` excludes them).
 1. A promo code is handed out **at most once**. Hand-out is a single atomic database operation
    (select an available code and mark it consumed in one transaction or one conditional `UPDATE`), so
    concurrent requests can never receive the same code.
-2. Codes past their batch's expiration date are never handed out.
+2. Codes past their batch's expiration date, and codes of a batch the admin invalidated, are never handed out.
 3. Codes are unique per app. Uploading a duplicate code is rejected or skipped and reported back to
    the admin; it is never silently duplicated.
 4. The client never gets bulk access to codes. A user only ever receives the single code they requested.
