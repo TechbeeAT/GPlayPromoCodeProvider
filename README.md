@@ -106,7 +106,9 @@ parse with `coerceInputValues = true`, so a code they don't know yet becomes `un
 failing; the web app's API client does this. If an error body isn't an `ErrorResponse` (e.g. a proxy's error
 page), the client derives the code from the status (`400`, `401`, `404`, `5xx`; otherwise `unknown`). A `502`, `503` or
 `504` without an `ErrorResponse` comes from a proxy whose server is down (the dev server without `:server:run`, Fly.io's
-proxy), so the web app treats it as a network error: "The server can't be reached".
+proxy), so the web app treats it as a network error: "The server can't be reached". For a code request that is not the
+whole truth: a `504` can come after the server handed out the code. The invite page then says the server didn't answer
+and that a code may have been handed out without reaching the user (it is lost; the user can request another one).
 
 User endpoints (scoped by the invite token; an unknown token, an unknown batch and a batch of another
 app all give the same `404`):

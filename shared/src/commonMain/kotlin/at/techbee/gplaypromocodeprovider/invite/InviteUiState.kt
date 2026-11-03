@@ -50,6 +50,12 @@ enum class InviteNotice {
     /** The batch no longer exists (e.g. the admin removed it). It has been removed from the list. */
     BATCH_UNAVAILABLE,
     NETWORK_ERROR,
+
+    /**
+     * A proxy in front of the server answered instead of it (502, 503, 504). The server may have handed
+     * out a code before that, which then didn't reach the user, so the page doesn't claim nothing happened.
+     */
+    NO_ANSWER,
     SERVER_ERROR,
 }
 

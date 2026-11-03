@@ -248,6 +248,25 @@ class InviteViewModelTest {
     }
 
     @Test
+    fun proxyAnsweringForTheServerDuringRequestSaysACodeMayBeLost() = runTest {
+        val vm = viewModel {
+            if (it.isInvite) json(inviteJson) else respond("Gateway Timeout", HttpStatusCode.GatewayTimeout)
+        }
+        vm.awaitLoaded()
+
+        vm.requestCode(7)
+
+        vm.awaitState { it.notice == InviteNotice.NO_ANSWER && it.requestingBatchId == null }
+    }
+
+    @Test
+    fun proxyAnsweringForTheServerWhileLoadingIsANetworkError() = runTest {
+        val vm = viewModel { respond("Bad Gateway", HttpStatusCode.BadGateway) }
+
+        vm.awaitState { it.content == InviteContent.LoadFailed(FailureReason.NETWORK) }
+    }
+
+    @Test
     fun networkErrorDuringRequestShowsANoticeThatCanBeDismissed() = runTest {
         val vm = viewModel { if (it.isInvite) json(inviteJson) else throw RuntimeException("offline") }
         vm.awaitLoaded()
