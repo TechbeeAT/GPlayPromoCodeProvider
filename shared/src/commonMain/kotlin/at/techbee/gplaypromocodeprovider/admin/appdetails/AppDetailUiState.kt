@@ -38,13 +38,18 @@ data class UploadFormState(
     /** The picked expiration day as the date picker returns it (midnight UTC of that day), or `null`. */
     val expiryDateMillis: Long? = null,
     val codes: String = "",
+    /**
+     * Number of non-blank lines in [codes], i.e. codes before duplicates are removed (the server's rules).
+     * Counted once per change of [codes] and kept by `copy`, so other form changes don't rescan
+     * thousands of lines. Change the codes only through [withCodes].
+     */
+    val codeCount: Int = countCodes(codes),
     val uploading: Boolean = false,
     val error: ActionError? = null,
     /** The outcome of the last upload, shown until dismissed or until the next upload. */
     val result: BatchUploadResponse? = null,
 ) {
-    /** Number of non-blank lines, i.e. codes before duplicates are removed (the server's rules). */
-    val codeCount: Int = countCodes(codes)
+    fun withCodes(codes: String) = copy(codes = codes, codeCount = countCodes(codes))
 
     val canUpload: Boolean get() = !uploading && expiryDateMillis != null && codeCount > 0
 }

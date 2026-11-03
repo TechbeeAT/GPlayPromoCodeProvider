@@ -108,7 +108,7 @@ class AppDetailViewModel(
 
     fun setExpiryDate(utcDateMillis: Long?) = updateForm { it.copy(expiryDateMillis = utcDateMillis) }
 
-    fun setCodes(codes: String) = updateForm { it.copy(codes = codes) }
+    fun setCodes(codes: String) = updateForm { it.withCodes(codes) }
 
     fun dismissUploadResult() = _state.update { it.copy(upload = it.upload.copy(result = null)) }
 

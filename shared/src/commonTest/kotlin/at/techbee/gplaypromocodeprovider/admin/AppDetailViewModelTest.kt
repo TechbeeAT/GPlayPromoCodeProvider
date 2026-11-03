@@ -288,6 +288,21 @@ class AppDetailViewModelTest {
     }
 
     @Test
+    fun codeCountFollowsTheCodesAndSurvivesOtherFormChanges() = runTest {
+        val vm = viewModel(server())
+        vm.awaitLoaded()
+
+        vm.setCodes("A\nB\n\nC")
+        vm.setDescription("Beta")
+        vm.setExpiryDate(pickedDay)
+        assertEquals(3, vm.state.value.upload.codeCount)
+        vm.setCodes("A")
+
+        assertEquals(1, vm.state.value.upload.codeCount)
+        assertEquals(2, UploadFormState(codes = "A\nB").codeCount)
+    }
+
+    @Test
     fun codesAreCountedLikeTheServerParsesThem() {
         assertEquals(0, countCodes(""))
         assertEquals(0, countCodes(" \n\t\n"))
