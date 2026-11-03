@@ -31,9 +31,10 @@ jobs:
       # Caches Gradle's downloads and build outputs between runs.
       - uses: gradle/actions/setup-gradle@v5
 
-      # The browser tests use the runner's preinstalled Chrome.
+      # The browser tests use the runner's preinstalled Chrome. Download problems (Maven Central
+      # glitches) are retried, failing tests are not (see the script).
       - name: Run all tests
-        run: ./gradlew --console=plain :shared:jsTest :shared:wasmJsTest :shared:jvmTest :api:jvmTest :server:test
+        run: .github/scripts/gradle-with-retry.sh --console=plain :shared:jsTest :shared:wasmJsTest :shared:jvmTest :api:jvmTest :server:test
 
       - name: Upload test reports
         if: failure()

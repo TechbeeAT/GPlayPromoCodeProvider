@@ -410,6 +410,10 @@ every pull request and every push to `main`:
 
 - **Build and test**: all test tasks (`:shared:jsTest :shared:wasmJsTest :shared:jvmTest :api:jvmTest :server:test`)
   with Java 21 and the runner's Chrome. A failing test fails the run; the test reports are then attached to it.
+  [`.github/scripts/gradle-with-retry.sh`](./.github/scripts/gradle-with-retry.sh) runs Gradle and retries up to two
+  times when a dependency couldn't be downloaded (Maven Central sometimes answers `429`, `5xx` or even `404` for a file
+  that exists), with `--refresh-dependencies` so Gradle doesn't trust its cached "missing" result. Failing tests and
+  compile errors are never retried.
 - **Build Docker image**: builds the image (without pushing it), so a broken `Dockerfile` shows up in the pull
   request and not only when deploying.
 - **Deploy to Fly.io** (optional, off by default): after both jobs passed on `main`, runs `flyctl deploy`.
