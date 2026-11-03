@@ -14,6 +14,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -21,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.api.AvailableBatch
 import at.techbee.gplaypromocodeprovider.invite.formatDateTime
 import at.techbee.gplaypromocodeprovider.PreviewTheme
-import kotlin.time.Instant
+import at.techbee.gplaypromocodeprovider.invite.PreviewData
 
 @Composable
 internal fun BatchList(
@@ -51,7 +52,8 @@ internal fun BatchList(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(batch.description ?: "Promo codes", style = MaterialTheme.typography.titleMedium)
-                    Text("Valid until ${formatDateTime(batch.expiresAt)}", style = MaterialTheme.typography.bodyMedium)
+                    val expiry = remember(batch.expiresAt) { formatDateTime(batch.expiresAt) }
+                    Text("Valid until $expiry", style = MaterialTheme.typography.bodyMedium)
                     Button(
                         onClick = { onRequestCode(batch.id) },
                         enabled = enabled,
@@ -78,14 +80,12 @@ internal fun BatchList(
     }
 }
 
-private val previewExpiry = Instant.parse("2027-01-31T22:59:00Z")
-
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun BatchList_Preview() {
     PreviewTheme {
         BatchList(
-            batches = listOf(AvailableBatch(1, "First Batch", previewExpiry)),
+            batches = listOf(AvailableBatch(1, "First Batch", PreviewData.expiry)),
             requestingBatchId = 1,
             enabled = true,
             hasCode = false,
@@ -99,7 +99,7 @@ private fun BatchList_Preview() {
 private fun BatchList_Has_Code_Preview() {
     PreviewTheme {
         BatchList(
-            batches = listOf(AvailableBatch(1, "Second Batch", previewExpiry)),
+            batches = listOf(AvailableBatch(1, "Second Batch", PreviewData.expiry)),
             requestingBatchId = 1,
             enabled = true,
             hasCode = true,
