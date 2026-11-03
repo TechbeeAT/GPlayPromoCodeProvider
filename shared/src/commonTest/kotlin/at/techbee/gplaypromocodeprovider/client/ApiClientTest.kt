@@ -150,13 +150,15 @@ class ApiClientTest {
 
     @Test
     fun unreachableServerIsANetworkError() = runTest {
-        val failure = IllegalStateException("Failed to fetch")
-        val api = client { throw failure }
+        val api = client { throw IllegalStateException("Failed to fetch") }
 
         val result = api.getInvite("tok")
 
         assertIs<ApiResult.NetworkError>(result)
-        assertEquals(failure, result.cause)
+        // Type and message, not identity: on the JVM, coroutines may hand over a copy of the exception
+        // (stack trace recovery).
+        assertIs<IllegalStateException>(result.cause)
+        assertEquals("Failed to fetch", result.cause.message)
     }
 
     @Test
