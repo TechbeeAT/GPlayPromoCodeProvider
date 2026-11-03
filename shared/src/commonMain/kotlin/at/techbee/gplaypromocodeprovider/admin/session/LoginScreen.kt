@@ -12,7 +12,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +25,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.components.ErrorText
 
 /** The admin login form. */
@@ -83,7 +83,7 @@ fun LoginScreen(state: AdminSessionState.LoggedOut, onLogin: (username: String, 
 
 @Composable
 private fun LoginPreview(state: AdminSessionState.LoggedOut) {
-    MaterialTheme { Surface { LoginScreen(state, onLogin = { _, _ -> }) } }
+    PreviewTheme { LoginScreen(state, onLogin = { _, _ -> }) }
 }
 
 @Preview(widthDp = 400, heightDp = 400)

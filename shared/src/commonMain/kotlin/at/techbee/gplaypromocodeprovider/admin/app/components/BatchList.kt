@@ -6,12 +6,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.components.StatsRow
 import at.techbee.gplaypromocodeprovider.api.AdminBatch
 import at.techbee.gplaypromocodeprovider.api.CodeStats
@@ -44,20 +44,18 @@ internal fun AdminBatchList(batches: List<AdminBatch>) {
 @Preview(widthDp = 600, heightDp = 400)
 @Composable
 private fun AdminBatchListPreview() {
-    MaterialTheme {
-        Surface {
-            AdminBatchList(
-                listOf(
-                    AdminBatch(2, 1, "Beta wave 2", Instant.parse("2027-01-31T22:59:59Z"), Instant.parse("2026-11-03T10:00:00Z"), CodeStats(40, 10, 0)),
-                    AdminBatch(1, 1, null, Instant.parse("2026-10-31T22:59:59Z"), Instant.parse("2026-09-01T08:30:00Z"), CodeStats(0, 17, 3)),
-                ),
-            )
-        }
+    PreviewTheme {
+        AdminBatchList(
+            listOf(
+                AdminBatch(2, 1, "Beta wave 2", Instant.parse("2027-01-31T22:59:59Z"), Instant.parse("2026-11-03T10:00:00Z"), CodeStats(40, 10, 0)),
+                AdminBatch(1, 1, null, Instant.parse("2026-10-31T22:59:59Z"), Instant.parse("2026-09-01T08:30:00Z"), CodeStats(0, 17, 3)),
+            ),
+        )
     }
 }
 
 @Preview(widthDp = 600, heightDp = 150)
 @Composable
 private fun AdminBatchListEmptyPreview() {
-    MaterialTheme { Surface { AdminBatchList(emptyList()) } }
+    PreviewTheme { AdminBatchList(emptyList()) }
 }

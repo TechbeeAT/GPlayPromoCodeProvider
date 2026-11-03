@@ -19,7 +19,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -33,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
 import at.techbee.gplaypromocodeprovider.admin.app.UploadFormState
 import at.techbee.gplaypromocodeprovider.admin.components.ErrorText
@@ -186,10 +186,8 @@ private val previewDay = Instant.parse("2027-01-31T00:00:00Z").toEpochMillisecon
 
 @Composable
 private fun UploadPreview(form: UploadFormState) {
-    MaterialTheme {
-        Surface {
-            BatchUploadCard(form, onDescriptionChange = {}, onExpiryDateChange = {}, onCodesChange = {}, onUpload = {}, onDismissResult = {})
-        }
+    PreviewTheme {
+        BatchUploadCard(form, onDescriptionChange = {}, onExpiryDateChange = {}, onCodesChange = {}, onUpload = {}, onDismissResult = {})
     }
 }
 

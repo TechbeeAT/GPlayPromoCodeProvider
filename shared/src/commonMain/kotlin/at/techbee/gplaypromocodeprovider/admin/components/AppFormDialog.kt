@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
 import at.techbee.gplaypromocodeprovider.admin.text
 import at.techbee.gplaypromocodeprovider.api.AppRequest
@@ -91,15 +91,13 @@ internal fun AppFormDialog(
 @Preview(widthDp = 500, heightDp = 500)
 @Composable
 private fun AppFormDialogPreview() {
-    MaterialTheme {
-        Surface {
-            AppFormDialog(
-                title = "Edit app",
-                initial = AppRequest("Jtx Board", "at.techbee.jtx", null),
-                state = AppDialogState(error = ActionError.Rejected("Name must be at most 100 characters")),
-                onSave = {},
-                onDismiss = {},
-            )
-        }
+    PreviewTheme {
+        AppFormDialog(
+            title = "Edit app",
+            initial = AppRequest("Jtx Board", "at.techbee.jtx", null),
+            state = AppDialogState(error = ActionError.Rejected("Name must be at most 100 characters")),
+            onSave = {},
+            onDismiss = {},
+        )
     }
 }

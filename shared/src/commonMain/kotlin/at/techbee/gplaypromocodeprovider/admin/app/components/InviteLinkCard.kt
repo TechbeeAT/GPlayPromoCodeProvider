@@ -10,13 +10,13 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
 import at.techbee.gplaypromocodeprovider.admin.app.RegenerateDialogState
 import at.techbee.gplaypromocodeprovider.admin.components.CopyButton
@@ -73,17 +73,13 @@ internal fun RegenerateLinkDialog(state: RegenerateDialogState, onConfirm: () ->
 @Preview(widthDp = 500, heightDp = 250)
 @Composable
 private fun InviteLinkCardPreview() {
-    MaterialTheme {
-        Surface {
-            InviteLinkCard(inviteLink("https://promo.example.com", "q8Vh1bT2kLx9_Za-3mN7pR4sW6yE0cJ5uI8oA2dF1gH"), onRegenerate = {})
-        }
+    PreviewTheme {
+        InviteLinkCard(inviteLink("https://promo.example.com", "q8Vh1bT2kLx9_Za-3mN7pR4sW6yE0cJ5uI8oA2dF1gH"), onRegenerate = {})
     }
 }
 
 @Preview(widthDp = 500, heightDp = 400)
 @Composable
 private fun RegenerateLinkDialogPreview() {
-    MaterialTheme {
-        Surface { RegenerateLinkDialog(RegenerateDialogState(error = ActionError.Network), onConfirm = {}, onDismiss = {}) }
-    }
+    PreviewTheme { RegenerateLinkDialog(RegenerateDialogState(error = ActionError.Network), onConfirm = {}, onDismiss = {}) }
 }

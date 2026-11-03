@@ -10,7 +10,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
 import at.techbee.gplaypromocodeprovider.admin.text
 import at.techbee.gplaypromocodeprovider.api.CodeStats
@@ -109,11 +109,11 @@ internal fun CopyButton(text: String, label: String) {
 @Preview(widthDp = 400, heightDp = 100)
 @Composable
 private fun StatsRowPreview() {
-    MaterialTheme { Surface { StatsRow(CodeStats(available = 42, consumed = 7, expired = 3), Modifier.padding(16.dp)) } }
+    PreviewTheme { StatsRow(CodeStats(available = 42, consumed = 7, expired = 3), Modifier.padding(16.dp)) }
 }
 
 @Preview(widthDp = 400, heightDp = 300)
 @Composable
 private fun LoadFailedMessagePreview() {
-    MaterialTheme { Surface { LoadFailedMessage("Couldn't load the apps", ActionError.Network, onRetry = {}) } }
+    PreviewTheme { LoadFailedMessage("Couldn't load the apps", ActionError.Network, onRetry = {}) }
 }

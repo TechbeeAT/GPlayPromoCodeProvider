@@ -12,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import at.techbee.gplaypromocodeprovider.Route
+import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.app.AppDetailScreen
 import at.techbee.gplaypromocodeprovider.admin.app.AppDetailViewModel
 import at.techbee.gplaypromocodeprovider.admin.apps.AppListScreen
@@ -125,15 +125,13 @@ private fun AdminBar(state: AdminSessionState.LoggedIn, onLogout: () -> Unit, on
 @Preview(widthDp = 600, heightDp = 100)
 @Composable
 private fun AdminBarPreview() {
-    MaterialTheme { Surface { AdminBar(AdminSessionState.LoggedIn("admin"), onLogout = {}, onDismissLogoutError = {}) } }
+    PreviewTheme { AdminBar(AdminSessionState.LoggedIn("admin"), onLogout = {}, onDismissLogoutError = {}) }
 }
 
 @Preview(widthDp = 600, heightDp = 150)
 @Composable
 private fun AdminBarLogoutFailedPreview() {
-    MaterialTheme {
-        Surface {
-            AdminBar(AdminSessionState.LoggedIn("admin", logoutError = ActionError.Network), onLogout = {}, onDismissLogoutError = {})
-        }
+    PreviewTheme {
+        AdminBar(AdminSessionState.LoggedIn("admin", logoutError = ActionError.Network), onLogout = {}, onDismissLogoutError = {})
     }
 }
