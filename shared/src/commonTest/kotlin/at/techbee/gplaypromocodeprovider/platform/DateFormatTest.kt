@@ -14,6 +14,14 @@ class DateFormatTest {
         assertEquals("31 Jan 2027, 23:59", formatDateTime(endOfLocalDay(day)))
     }
 
+    // The date picker's headline: the picked day itself, also west of UTC, where midnight UTC is the evening before.
+    @Test
+    fun pickedDayIsShownAsThatDayInLocalTime() {
+        val day = Instant.parse("2027-01-31T00:00:00Z").toEpochMilliseconds()
+
+        assertEquals("31 Jan 2027", formatDate(endOfLocalDay(day)))
+    }
+
     @Test
     fun endOfDayAcceptsAnyTimeOfThePickedUtcDay() {
         val midnight = Instant.parse("2027-06-15T00:00:00Z").toEpochMilliseconds()

@@ -8,6 +8,9 @@ import kotlin.time.Instant
  */
 expect fun formatDateTime(instant: Instant): String
 
+/** The day of [instant] in the browser's time zone, e.g. "31 Jan 2027". */
+expect fun formatDate(instant: Instant): String
+
 /**
  * The last minute of a calendar day in the browser's time zone (23:59:59 local time), for turning a
  * date picked by the admin into a batch's exact expiration instant.

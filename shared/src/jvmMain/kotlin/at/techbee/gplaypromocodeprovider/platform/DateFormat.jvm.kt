@@ -11,6 +11,11 @@ import kotlin.time.toJavaInstant
 // Mirrors the browser version (English, day before month, 24-hour clock), so previews look like the app.
 private val formatter = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.UK)
 
+private val dateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.UK)
+
+actual fun formatDate(instant: Instant): String =
+    dateFormatter.format(instant.toJavaInstant().atZone(ZoneId.systemDefault()))
+
 actual fun formatDateTime(instant: Instant): String =
     formatter.format(instant.toJavaInstant().atZone(ZoneId.systemDefault()))
 

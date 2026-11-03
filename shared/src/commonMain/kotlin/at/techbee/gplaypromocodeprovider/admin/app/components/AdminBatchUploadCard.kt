@@ -41,6 +41,7 @@ import at.techbee.gplaypromocodeprovider.api.AdminBatch
 import at.techbee.gplaypromocodeprovider.api.BatchUploadResponse
 import at.techbee.gplaypromocodeprovider.api.CodeStats
 import at.techbee.gplaypromocodeprovider.platform.endOfLocalDay
+import at.techbee.gplaypromocodeprovider.platform.formatDate
 import at.techbee.gplaypromocodeprovider.platform.formatDateTime
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -137,7 +138,18 @@ private fun ExpiryDatePickerDialog(initial: Long?, onPick: (Long?) -> Unit, onDi
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     ) {
-        DatePicker(pickerState, title = { Text("Codes valid until", Modifier.padding(start = 24.dp, top = 16.dp)) })
+        DatePicker(
+            pickerState,
+            title = { Text("Codes valid until", Modifier.padding(start = 24.dp, top = 16.dp)) },
+            // Material's own headline formats the picked day (midnight UTC) in the browser's time zone, which
+            // shows the day before west of UTC. The end of the picked local day is that day everywhere.
+            headline = {
+                Text(
+                    pickerState.selectedDateMillis?.let { formatDate(endOfLocalDay(it)) } ?: "No date picked",
+                    Modifier.padding(start = 24.dp, end = 12.dp, bottom = 12.dp),
+                )
+            },
+        )
     }
 }
 
