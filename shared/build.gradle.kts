@@ -1,3 +1,4 @@
+import org.jetbrains.compose.reload.gradle.ComposeHotRun
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
@@ -7,8 +8,9 @@ plugins {
 }
 
 kotlin {
-    // Only for the IDE's Compose previews (rendered on the JVM) and fast tests. The app itself runs in
-    // the browser (js, wasmJs); there is no desktop app.
+    // Only for development: the IDE's Compose previews, fast tests and the Compose Hot Reload window
+    // (`hotRunJvm`, see DevMain.kt). The app itself runs in the browser (js, wasmJs); there is no
+    // desktop app to ship.
     jvm()
     js {
         browser()
@@ -50,4 +52,10 @@ kotlin {
             implementation(libs.kotlin.testJunit)
         }
     }
+}
+
+// Compose Hot Reload (bundled with the Compose Multiplatform Gradle plugin): `./gradlew :shared:hotRunJvm`
+// opens App in a desktop window and reloads it whenever a source file changes.
+tasks.withType<ComposeHotRun>().configureEach {
+    mainClass.set("at.techbee.gplaypromocodeprovider.DevMainKt")
 }
