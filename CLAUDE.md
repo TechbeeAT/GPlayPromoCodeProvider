@@ -41,7 +41,7 @@ deciding them.
 |--------|---------|
 | `api` | `@Serializable` DTOs of the REST API, shared by server and web app. Only depends on kotlinx.serialization (no Compose). Targets: `jvm`, `js`, `wasmJs`. |
 | `shared` | Compose UI, view models and the API client (`client.ApiClient`, Ktor client). Depends on `api`. Targets: `js`, `wasmJs`, plus `jvm` only for the IDE's Compose previews and fast tests (there is no desktop app). `App` picks the screen from the URL path (`Route`); one package per screen (`invite`). Browser-only code (e.g. `js()` interop) goes into `webMain`, with a JVM `actual` in `jvmMain` (`expect`/`actual`). |
-| `webApp` | Web entry point (`main.kt` → `ComposeViewport { App(path, origin) }`), `index.html`, CSS, dev server config (`webpack.config.d`: port 8081, `/api` proxy, `index.html` for every path). |
+| `webApp` | Web entry point (`main.kt` creates the `ApiClient` for the page's origin → `ComposeViewport { App(path, api) }`), `index.html`, CSS, dev server config (`webpack.config.d`: port 8081, `/api` proxy, `index.html` for every path). |
 | `server` | Ktor REST API (Kotlin/JVM), SQLite persistence via Exposed, admin authentication. Will also serve the web app (step #7). |
 
 ## Commands

@@ -29,7 +29,8 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
-            implementation(libs.ktor.client.core)
+            // api: ApiClient's constructor takes an HttpClientEngine, so callers (webApp) need the type.
+            api(libs.ktor.client.core)
             implementation(libs.ktor.client.contentNegotiation)
             implementation(libs.ktor.serialization.kotlinxJson)
         }
@@ -44,7 +45,6 @@ kotlin {
         jvmMain.dependencies {
             // Skia natives for the current OS, needed to render previews on the JVM.
             implementation(compose.desktop.currentOs)
-            implementation(libs.ktor.client.cio)
         }
         jvmTest.dependencies {
             implementation(libs.kotlin.testJunit)

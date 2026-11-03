@@ -8,7 +8,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,13 +24,12 @@ import at.techbee.gplaypromocodeprovider.invite.InviteViewModel
  * added here.
  *
  * @param path the page's URL path, e.g. `/invite/abc`
- * @param origin the origin the page was loaded from; the API is expected there
+ * @param api the client for the server's API. Created by the caller and shared by all screens; the view
+ *   models keep using it, so it must live as long as the page.
  */
 @Composable
-fun App(path: String, origin: String) {
+fun App(path: String, api: ApiClient) {
     val route = remember(path) { Route.parse(path) }
-    val api = remember(origin) { ApiClient(origin) }
-    DisposableEffect(api) { onDispose { api.close() } }
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {

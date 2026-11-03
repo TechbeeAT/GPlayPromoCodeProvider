@@ -48,6 +48,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * @param baseUrl origin of the server, e.g. `https://promo.example.com`. In the browser, use the
  *   origin the web app was loaded from.
  * @param engine HTTP engine. `null` uses the platform default (the browser's `fetch`); tests pass a mock.
+ *   The `jvm` target (previews and tests only) has no default engine, so there one must be passed.
  */
 class ApiClient(baseUrl: String, engine: HttpClientEngine? = null) : AutoCloseable {
 
