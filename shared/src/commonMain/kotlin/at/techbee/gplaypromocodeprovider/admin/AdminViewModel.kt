@@ -3,6 +3,8 @@ package at.techbee.gplaypromocodeprovider.admin
 import androidx.lifecycle.ViewModel
 import at.techbee.gplaypromocodeprovider.api.ApiError
 import at.techbee.gplaypromocodeprovider.client.ApiResult
+import at.techbee.gplaypromocodeprovider.ui.NETWORK_ERROR_TEXT
+import at.techbee.gplaypromocodeprovider.ui.SERVER_ERROR_TEXT
 
 /** Why an admin page couldn't load or an admin action failed. */
 sealed interface ActionError {
@@ -23,8 +25,8 @@ sealed interface ActionError {
 /** The text shown to the admin for this error. */
 val ActionError.text: String
     get() = when (this) {
-        ActionError.Network -> "The server can't be reached. Check your internet connection and try again."
-        ActionError.Server -> "Something went wrong on the server. Please try again in a moment."
+        ActionError.Network -> NETWORK_ERROR_TEXT
+        ActionError.Server -> SERVER_ERROR_TEXT
         is ActionError.Rejected -> reason
         ActionError.SessionExpired -> "Your session has ended. Please log in again."
     }

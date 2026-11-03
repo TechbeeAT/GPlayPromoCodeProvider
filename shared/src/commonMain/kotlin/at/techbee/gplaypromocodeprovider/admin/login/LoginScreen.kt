@@ -27,6 +27,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.components.ErrorText
+import at.techbee.gplaypromocodeprovider.ui.NETWORK_ERROR_TEXT
+import at.techbee.gplaypromocodeprovider.ui.SERVER_ERROR_TEXT
 
 /** The admin login form. */
 @Composable
@@ -69,8 +71,8 @@ fun LoginScreen(state: AdminSessionState.LoggedOut, onLogin: (username: String, 
                 ErrorText(
                     when (it) {
                         LoginError.WRONG_CREDENTIALS -> "Wrong username or password."
-                        LoginError.NETWORK -> "The server can't be reached. Check your internet connection and try again."
-                        LoginError.SERVER -> "Something went wrong on the server. Please try again in a moment."
+                        LoginError.NETWORK -> NETWORK_ERROR_TEXT
+                        LoginError.SERVER -> SERVER_ERROR_TEXT
                     },
                 )
             }

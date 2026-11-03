@@ -15,6 +15,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.invite.InviteNotice
+import at.techbee.gplaypromocodeprovider.ui.NETWORK_ERROR_TEXT
+import at.techbee.gplaypromocodeprovider.ui.SERVER_ERROR_TEXT
 
 @Composable
 internal fun NoticeCard(notice: InviteNotice, onDismiss: () -> Unit) {

@@ -1,6 +1,6 @@
-package at.techbee.gplaypromocodeprovider.invite.components
+package at.techbee.gplaypromocodeprovider.ui
 
-// Shared by the "couldn't load" page and the notice after a failed request, so both say the same.
+// Shared by the invite page and the admin UI, so every page says the same.
 
 internal const val NETWORK_ERROR_TEXT = "The server can't be reached. Check your internet connection and try again."
 
