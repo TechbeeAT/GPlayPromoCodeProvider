@@ -449,8 +449,9 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
   account). The first real deployment should follow [the guide](#deploying-to-flyio) and fix whatever doesn't match.
 - **Suggestion**: admin sessions are kept in memory, so a deployment and every idle stop of the Fly.io machine log the
   admin out. Storing sessions in SQLite (Ktor `SessionStorage`) would keep them, if this becomes annoying.
-- **Note**: the image contains and serves the web app's source maps (`*.map`, about 11 MB). Harmless for an open
-  project; deleting them in the Dockerfile would make the image smaller.
+- **Decision**: the image keeps and serves the web app's source maps (`*.map`, about 11 MB, ~2% of the image). Users
+  don't download them (only the browser's developer tools do), and they make errors in the JS fallback readable.
+  `RUN find /app/web -name '*.map' -delete` in the runtime stage would drop them, e.g. if the repository becomes private.
 - **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing, keyed by Fly.io's `Fly-Client-IP` (`X-Forwarded-For` can be faked).
   The invite endpoints could be rate-limited too.
 - **Accepted for now** (decided after step #5, no action planned):
