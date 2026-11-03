@@ -13,14 +13,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -28,28 +22,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.invite.ReceivedCode
 import at.techbee.gplaypromocodeprovider.platform.formatDateTime
-import at.techbee.gplaypromocodeprovider.platform.plainTextClipEntry
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.invite.PreviewData
-import kotlin.time.Duration.Companion.milliseconds
+import at.techbee.gplaypromocodeprovider.ui.rememberCopyToClipboard
 
 
 @Composable
 internal fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
-    val clipboard = LocalClipboard.current
     val uriHandler = LocalUriHandler.current
-    val scope = rememberCoroutineScope()
-    var copyResult by remember(code.code) { mutableStateOf<Boolean?>(null) }
+    val copy = rememberCopyToClipboard(code.code)
     val expiry = remember(code.expiresAt) { formatDateTime(code.expiresAt) }
-    LaunchedEffect(copyResult) {
-        if (copyResult == true) {
-            delay(2_000.milliseconds)
-            copyResult = null
-        }
-    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -77,22 +59,11 @@ internal fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { uriHandler.openUri(code.redeemUrl) }) { Text("Redeem on Google Play") }
-                OutlinedButton(onClick = {
-                    scope.launch {
-                        copyResult = try {
-                            clipboard.setClipEntry(plainTextClipEntry(code.code))
-                            true
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (_: Throwable) {
-                            false // E.g. the browser denied clipboard access.
-                        }
-                    }
-                }) {
-                    Text(if (copyResult == true) "Copied" else "Copy code")
+                OutlinedButton(onClick = copy::copy) {
+                    Text(if (copy.result == true) "Copied" else "Copy code")
                 }
             }
-            if (copyResult == false) {
+            if (copy.result == false) {
                 Text(
                     "Couldn't copy the code. Select it and copy it by hand.",
                     style = MaterialTheme.typography.bodySmall,

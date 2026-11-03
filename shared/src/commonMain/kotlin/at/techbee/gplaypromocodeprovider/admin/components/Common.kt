@@ -12,15 +12,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -29,11 +22,7 @@ import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
 import at.techbee.gplaypromocodeprovider.admin.text
 import at.techbee.gplaypromocodeprovider.api.CodeStats
-import at.techbee.gplaypromocodeprovider.platform.plainTextClipEntry
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
+import at.techbee.gplaypromocodeprovider.ui.rememberCopyToClipboard
 
 @Composable
 internal fun ErrorText(text: String, modifier: Modifier = Modifier) {
@@ -80,29 +69,10 @@ private fun Stat(label: String, value: Int, color: androidx.compose.ui.graphics.
 /** Copies [text] to the clipboard. Says "Copied" for a moment, or that copying failed. */
 @Composable
 internal fun CopyButton(text: String, label: String) {
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
-    var copied by remember(text) { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(copied) {
-        if (copied == true) {
-            delay(2_000.milliseconds)
-            copied = null
-        }
-    }
+    val copy = rememberCopyToClipboard(text)
     Column {
-        OutlinedButton(onClick = {
-            scope.launch {
-                copied = try {
-                    clipboard.setClipEntry(plainTextClipEntry(text))
-                    true
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Throwable) {
-                    false // E.g. the browser denied clipboard access.
-                }
-            }
-        }) { Text(if (copied == true) "Copied" else label) }
-        if (copied == false) ErrorText("Couldn't copy. Select the text and copy it by hand.")
+        OutlinedButton(onClick = copy::copy) { Text(if (copy.result == true) "Copied" else label) }
+        if (copy.result == false) ErrorText("Couldn't copy. Select the text and copy it by hand.")
     }
 }
 
