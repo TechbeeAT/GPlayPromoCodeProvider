@@ -50,14 +50,16 @@ class InviteViewModel(private val token: String, private val api: ApiClient) : V
                     load(showLoading = false)
                 }
                 is ApiResult.Failure -> when (result.error) {
+                    // The batch is dropped from the list right away, so it isn't offered again even if
+                    // the refresh fails.
                     ApiError.NO_CODE_AVAILABLE -> {
-                        _state.update { it.copy(requestingBatchId = null, notice = InviteNotice.BATCH_RAN_OUT) }
+                        _state.update { it.withoutBatch(batchId).copy(notice = InviteNotice.BATCH_RAN_OUT) }
                         load(showLoading = false)
                     }
-                    // The link was revoked or the batch is gone. Reloading shows which: the invalid
-                    // link message, or the current batch list.
+                    // The batch is gone, or the link was revoked. Reloading shows which: the current
+                    // batch list, or the invalid link message.
                     ApiError.NOT_FOUND -> {
-                        _state.update { it.copy(requestingBatchId = null) }
+                        _state.update { it.withoutBatch(batchId).copy(notice = InviteNotice.BATCH_UNAVAILABLE) }
                         load(showLoading = false)
                     }
                     else -> _state.update { it.copy(requestingBatchId = null, notice = InviteNotice.SERVER_ERROR) }
@@ -66,6 +68,15 @@ class InviteViewModel(private val token: String, private val api: ApiClient) : V
                     _state.update { it.copy(requestingBatchId = null, notice = InviteNotice.NETWORK_ERROR) }
             }
         }
+    }
+
+    /** Ends the request for [batchId] and removes that batch from the shown list. */
+    private fun InviteUiState.withoutBatch(batchId: Long): InviteUiState {
+        val loaded = content as? InviteContent.Loaded ?: return copy(requestingBatchId = null)
+        return copy(
+            requestingBatchId = null,
+            content = loaded.copy(batches = loaded.batches.filterNot { it.id == batchId }),
+        )
     }
 
     /** Hides the current notice. */

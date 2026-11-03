@@ -3,6 +3,7 @@ package at.techbee.gplaypromocodeprovider.invite
 import at.techbee.gplaypromocodeprovider.api.AvailableBatch
 import at.techbee.gplaypromocodeprovider.client.ApiClient
 import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockEngineConfig
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
@@ -51,10 +52,17 @@ class InviteViewModelTest {
         token = "tok",
         api = ApiClient(
             "https://promo.example.com",
-            MockEngine { request ->
-                requests += request
-                handler(request)
-            },
+            MockEngine(
+                MockEngineConfig().apply {
+                    // Run the handlers on the test dispatcher (set as Main), not on Ktor's IO threads:
+                    // single-threaded on every platform, so the tests' plain variables need no locking.
+                    dispatcher = Dispatchers.Main
+                    addHandler { request ->
+                        requests += request
+                        handler(request)
+                    }
+                },
+            ),
         ),
     )
 
@@ -177,6 +185,48 @@ class InviteViewModelTest {
     }
 
     @Test
+    fun batchThatRanOutIsRemovedBeforeTheRefreshAnswers() = runTest {
+        val refreshAnswered = CompletableDeferred<Unit>()
+        var invites = 0
+        val vm = viewModel {
+            if (it.isInvite) {
+                if (++invites == 2) refreshAnswered.await()
+                json(inviteJson)
+            } else {
+                error(HttpStatusCode.Conflict, "no_code_available")
+            }
+        }
+        vm.awaitLoaded()
+
+        vm.requestCode(7)
+        val state = vm.awaitState { it.notice == InviteNotice.BATCH_RAN_OUT }
+
+        assertEquals(listOf(batch8), (state.content as InviteContent.Loaded).batches)
+        assertNull(state.requestingBatchId)
+        refreshAnswered.complete(Unit)
+    }
+
+    @Test
+    fun missingBatchShowsANoticeAndIsRemoved() = runTest {
+        var invites = 0
+        val vm = viewModel {
+            if (it.isInvite) {
+                if (++invites == 1) json(inviteJson) else throw RuntimeException("offline")
+            } else {
+                error(HttpStatusCode.NotFound, "not_found")
+            }
+        }
+        vm.awaitLoaded()
+
+        vm.requestCode(7)
+        val state = vm.awaitState { invites == 2 && !it.refreshing }
+
+        assertEquals(InviteNotice.BATCH_UNAVAILABLE, state.notice)
+        assertEquals(InviteContent.Loaded("My App", listOf(batch8)), state.content)
+        assertNull(state.requestingBatchId)
+    }
+
+    @Test
     fun revokedLinkDuringRequestShowsInvalidLinkButKeepsReceivedCodes() = runTest {
         var revoked = false
         val vm = viewModel {
@@ -222,7 +272,7 @@ class InviteViewModelTest {
     }
 
     @Test
-    fun failedRefreshKeepsTheCurrentList() = runTest {
+    fun failedRefreshKeepsTheListWithoutTheBatchThatRanOut() = runTest {
         var invites = 0
         val vm = viewModel {
             if (it.isInvite) {
@@ -231,12 +281,13 @@ class InviteViewModelTest {
                 error(HttpStatusCode.Conflict, "no_code_available")
             }
         }
-        val loaded = vm.awaitLoaded()
+        vm.awaitLoaded()
 
         vm.requestCode(7)
         val state = vm.awaitState { invites == 2 && !it.refreshing && it.notice == InviteNotice.BATCH_RAN_OUT }
 
-        assertEquals(loaded, state.content)
+        // The batch that ran out isn't offered again, although the refresh failed.
+        assertEquals(InviteContent.Loaded("My App", listOf(batch8)), state.content)
     }
 
     @Test

@@ -33,7 +33,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import at.techbee.gplaypromocodeprovider.PreviewTheme
-import kotlin.time.Instant
+import at.techbee.gplaypromocodeprovider.invite.PreviewData
 import kotlin.time.Duration.Companion.milliseconds
 
 
@@ -43,6 +43,7 @@ internal fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
     var copyResult by remember(code.code) { mutableStateOf<Boolean?>(null) }
+    val expiry = remember(code.expiresAt) { formatDateTime(code.expiresAt) }
     LaunchedEffect(copyResult) {
         if (copyResult == true) {
             delay(2_000.milliseconds)
@@ -69,7 +70,7 @@ internal fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
                 )
             }
             Text(
-                listOfNotNull(code.batchDescription, "valid until ${formatDateTime(code.expiresAt)}")
+                listOfNotNull(code.batchDescription, "valid until $expiry")
                     .joinToString(" · ")
                     .replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.bodySmall,
@@ -109,13 +110,11 @@ internal fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
     }
 }
 
-private val previewCode = ReceivedCode("WAVE2AAAAAAAAAAAAAAA", "Beta wave 2", Instant.parse("2027-01-31T22:59:00Z"))
-
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun CodeCard_prominent_Preview() {
     PreviewTheme {
-        CodeCard(code = previewCode, prominent = true)
+        CodeCard(code = PreviewData.codes.first(), prominent = true)
     }
 }
 
@@ -123,6 +122,6 @@ private fun CodeCard_prominent_Preview() {
 @Preview(widthDp = 400, heightDp = 600)
 private fun CodeCard_earlier_Preview() {
     PreviewTheme {
-        CodeCard(code = previewCode, prominent = false)
+        CodeCard(code = PreviewData.codes.first(), prominent = false)
     }
 }
