@@ -15,7 +15,7 @@ data class AppDetailUiState(
     val editDialog: AppDialogState? = null,
     /** The confirmation for a new invite link; `null` while it is closed. */
     val regenerateDialog: RegenerateDialogState? = null,
-    val upload: UploadFormState = UploadFormState(),
+    val upload: BatchUploadFormState = BatchUploadFormState(),
 )
 
 sealed interface AppDetailContent {
@@ -33,7 +33,7 @@ sealed interface AppDetailContent {
 data class RegenerateDialogState(val running: Boolean = false, val error: ActionError? = null)
 
 /** The batch upload form. Kept in the view model, so it survives a login in between. */
-data class UploadFormState(
+data class BatchUploadFormState(
     val description: String = "",
     /** The picked expiration day as the date picker returns it (midnight UTC of that day), or `null`. */
     val expiryDateMillis: Long? = null,

@@ -29,7 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
-import at.techbee.gplaypromocodeprovider.admin.appdetails.UploadFormState
+import at.techbee.gplaypromocodeprovider.admin.appdetails.BatchUploadFormState
 import at.techbee.gplaypromocodeprovider.admin.components.ErrorText
 import at.techbee.gplaypromocodeprovider.admin.text
 import at.techbee.gplaypromocodeprovider.api.AdminBatch
@@ -45,7 +45,7 @@ private const val MAX_LISTED_DUPLICATES = 100
 /** The form for uploading a batch of codes, and the result of the last upload. */
 @Composable
 internal fun AdminBatchUploadCard(
-    form: UploadFormState,
+    form: BatchUploadFormState,
     onDescriptionChange: (String) -> Unit,
     onExpiryDateChange: (Long?) -> Unit,
     isSelectableExpiryDay: (Long) -> Boolean,
@@ -156,7 +156,7 @@ private fun AdminBatchUploadResult(result: BatchUploadResponse, onDismiss: () ->
 private val previewDay = Instant.parse("2027-01-31T00:00:00Z").toEpochMilliseconds()
 
 @Composable
-private fun AdminBatchUploadPreview(form: UploadFormState) {
+private fun AdminBatchUploadPreview(form: BatchUploadFormState) {
     PreviewTheme {
         AdminBatchUploadCard(
             form,
@@ -172,24 +172,24 @@ private fun AdminBatchUploadPreview(form: UploadFormState) {
 
 @Preview(widthDp = 600, heightDp = 500)
 @Composable
-private fun AdminBatchUploadEmptyPreview() = AdminBatchUploadPreview(UploadFormState())
+private fun AdminBatchUploadEmptyPreview() = AdminBatchUploadPreview(BatchUploadFormState())
 
 @Preview(widthDp = 600, heightDp = 500)
 @Composable
 private fun AdminBatchUploadFilledPreview() = AdminBatchUploadPreview(
-    UploadFormState(description = "Beta wave 2", expiryDateMillis = previewDay, codes = "AAAA1111\nBBBB2222\n\nCCCC3333\n"),
+    BatchUploadFormState(description = "Beta wave 2", expiryDateMillis = previewDay, codes = "AAAA1111\nBBBB2222\n\nCCCC3333\n"),
 )
 
 @Preview(widthDp = 600, heightDp = 500)
 @Composable
 private fun UploadingPreviewAdminBatch() = AdminBatchUploadPreview(
-    UploadFormState(description = "Beta wave 2", expiryDateMillis = previewDay, codes = "AAAA1111\nBBBB2222", uploading = true),
+    BatchUploadFormState(description = "Beta wave 2", expiryDateMillis = previewDay, codes = "AAAA1111\nBBBB2222", uploading = true),
 )
 
 @Preview(widthDp = 600, heightDp = 550)
 @Composable
 private fun AdminBatchUploadErrorPreview() = AdminBatchUploadPreview(
-    UploadFormState(
+    BatchUploadFormState(
         expiryDateMillis = previewDay,
         codes = "AAAA1111",
         error = ActionError.Rejected("All 1 codes already exist for this app"),
@@ -199,7 +199,7 @@ private fun AdminBatchUploadErrorPreview() = AdminBatchUploadPreview(
 @Preview(widthDp = 600, heightDp = 750)
 @Composable
 private fun AdminBatchUploadResultPreview() = AdminBatchUploadPreview(
-    UploadFormState(
+    BatchUploadFormState(
         result = BatchUploadResponse(
             batch = AdminBatch(3, 1, "Beta wave 2", Instant.parse("2027-01-31T22:59:59Z"), Instant.parse("2026-11-03T10:00:00Z"), CodeStats(12, 0, 0)),
             addedCount = 12,
