@@ -10,6 +10,10 @@ package at.techbee.gplaypromocodeprovider.server
  * | `ADMIN_USERNAME` | *(required)*                    | Admin login name                              |
  * | `ADMIN_PASSWORD` | *(required)*                    | Admin password                                |
  * | `COOKIE_SECURE`  | `true`                          | Send the session cookie over HTTPS only       |
+ * | `WEB_DIR`        | *(none)*                        | Directory of the compiled web app to serve    |
+ *
+ * Without `WEB_DIR` the server only answers `/api` (development, where the webpack dev server serves
+ * the web app). The Docker image sets it to the web app it contains.
  */
 data class ServerConfig(
     val port: Int,
@@ -17,10 +21,11 @@ data class ServerConfig(
     val adminUsername: String,
     val adminPassword: String,
     val cookieSecure: Boolean,
+    val webDir: String? = null,
 ) {
     // Keep the password out of logs and exception messages.
     override fun toString() =
-        "ServerConfig(port=$port, databasePath=$databasePath, adminUsername=$adminUsername, cookieSecure=$cookieSecure)"
+        "ServerConfig(port=$port, databasePath=$databasePath, adminUsername=$adminUsername, cookieSecure=$cookieSecure, webDir=$webDir)"
 
     companion object {
         fun fromEnvironment(env: Map<String, String> = System.getenv()): ServerConfig {
@@ -33,6 +38,7 @@ data class ServerConfig(
                 adminUsername = required("ADMIN_USERNAME"),
                 adminPassword = required("ADMIN_PASSWORD"),
                 cookieSecure = env["COOKIE_SECURE"]?.toBooleanStrictOrNull() ?: true,
+                webDir = env["WEB_DIR"]?.takeIf { it.isNotBlank() },
             )
         }
     }

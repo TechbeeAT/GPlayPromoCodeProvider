@@ -30,7 +30,10 @@ deciding them.
 - **Ktor** for the server (Kotlin/JVM), module `server`. It will also serve the compiled web app.
 - **SQLite** for persistence, accessed through **Exposed** (DSL, JDBC). Schema migrations are plain SQL
   in `server/.../db/Migrations.kt`, versioned with `PRAGMA user_version`.
-- **Docker** image as the single deployable, deployed to **Fly.io** (SQLite file on a Fly volume)
+- **Docker** image as the single deployable (`Dockerfile`, `docker-entrypoint.sh`), deployed to **Fly.io**
+  (`fly.toml`, one machine, SQLite file on a Fly volume at `/data`)
+- **GitHub Actions** CI (`.github/workflows/ci.yml`): all tests and a Docker build on every PR; optional
+  deployment of `main` to Fly.io
 - UI language: English only (no i18n needed)
 - Gradle with Kotlin DSL and a version catalog (`gradle/libs.versions.toml`)
 - Package: `at.techbee.gplaypromocodeprovider`
@@ -42,7 +45,7 @@ deciding them.
 | `api` | `@Serializable` DTOs of the REST API, shared by server and web app. Only depends on kotlinx.serialization (no Compose). Targets: `jvm`, `js`, `wasmJs`. |
 | `shared` | Compose UI, view models and the API client (`client.ApiClient`, Ktor client). Depends on `api`. Targets: `js`, `wasmJs`, plus `jvm` only for the IDE's Compose previews and fast tests (there is no desktop app). `App` picks the screen from the URL path (`Route`); one package per screen (`invite`, `admin.apps`, `admin.app`; `admin.session` for login). Browser-only code (e.g. `js()` interop, `kotlinx-browser`) goes into `webMain` behind an `expect` in `platform`, with a JVM `actual` in `jvmMain`. |
 | `webApp` | Web entry point (`main.kt` creates the `ApiClient` for the page's origin → `ComposeViewport { App(path, origin, api) }`), `index.html`, CSS, dev server config (`webpack.config.d`: port 8081, `/api` proxy, `index.html` for every path). |
-| `server` | Ktor REST API (Kotlin/JVM), SQLite persistence via Exposed, admin authentication. Will also serve the web app (step #7). |
+| `server` | Ktor REST API (Kotlin/JVM), SQLite persistence via Exposed, admin authentication. With `WEB_DIR` set it also serves the compiled web app (`routes/WebAppRoutes.kt`: `index.html` for every non-file path, own JSON 404 for unknown `/api` paths). |
 
 ## Commands
 
@@ -55,6 +58,8 @@ deciding them.
 ./gradlew :api:jvmTest                          # API model tests (JVM)
 ./gradlew :server:test                          # server tests (JVM)
 ADMIN_USERNAME=admin ADMIN_PASSWORD=secret COOKIE_SECURE=false ./gradlew :server:run   # run the server on :8080
+./gradlew :webApp:composeCompatibilityBrowserDistribution   # production web build (Wasm + JS fallback), as in the Docker image
+docker build -t gplay-promo-codes .             # the deployable image (server + web app), see README "Deployment"
 ```
 
 Server environment variables are documented in `server/.../ServerConfig.kt` and the README.
@@ -97,7 +102,9 @@ CLAUDE_CODE_REMOTE=true .claude/hooks/session-start.sh
 ./gradlew :shared:jsTest :shared:wasmJsTest :shared:jvmTest :api:jvmTest :server:test
 ```
 
-When a new module or test task is added, add it to the warm-up in the hook.
+When a new module or test task is added, add it to the warm-up in the hook and to the test step in
+`.github/workflows/ci.yml`. A new module also needs its sources in the Docker build (`COPY . .` covers
+it unless `.dockerignore` excludes them).
 
 ## Domain rules (must hold)
 

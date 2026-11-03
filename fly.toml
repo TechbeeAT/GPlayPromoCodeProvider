@@ -1,0 +1,52 @@
+# Fly.io configuration, used by `fly deploy`. See README.md ("Deployment") for the step-by-step guide.
+# Reference: https://fly.io/docs/reference/configuration/
+
+# The app's name on Fly.io, also its default address: https://<app>.fly.dev. It must be unique on
+# Fly.io; change it (or let `fly launch` change it) before the first deployment.
+app = "gplay-promo-codes"
+
+# Where the machine and its volume run. "fra" is Frankfurt; `fly platform regions` lists the others.
+primary_region = "fra"
+
+# Build the image from the Dockerfile in this directory (on Fly.io's builders, so no local Docker is
+# needed).
+[build]
+  dockerfile = "Dockerfile"
+
+# Configuration that isn't secret. The Dockerfile already sets PORT, DATABASE_PATH and WEB_DIR;
+# ADMIN_USERNAME and ADMIN_PASSWORD are secrets (`fly secrets set`), never in this file.
+[env]
+  # TLS ends at Fly.io's proxy, which forwards X-Forwarded-Proto: https, so the session cookie can
+  # and should be Secure (the default). Repeated here to make it explicit.
+  COOKIE_SECURE = "true"
+
+# The persistent volume for the SQLite file. A volume belongs to one machine in one region, which is
+# why this app runs as a single machine (SQLite is one file, not a database server).
+[mounts]
+  source = "data"
+  destination = "/data"
+
+# Fly.io's proxy accepts HTTPS on port 443 (and HTTP on 80) and forwards to the server on 8080.
+[http_service]
+  internal_port = 8080
+  # Redirect http:// to https://.
+  force_https = true
+  # Stop the machine when there is no traffic for a few minutes and start it again on the next
+  # request (takes a few seconds). Cheaper; the downside is that it logs the admin out, because
+  # sessions are kept in memory. Set to "off" and min_machines_running = 1 to keep it running.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  # Fly.io only routes traffic to the machine once this answers, also during a deployment.
+  [[http_service.checks]]
+    method = "GET"
+    path = "/api/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+
+# The machine size. The JVM is comfortable with 512 MB; 256 MB is too tight.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
