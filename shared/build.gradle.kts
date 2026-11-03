@@ -40,6 +40,7 @@ kotlin {
         }
         webMain.dependencies {
             implementation(libs.ktor.client.js)
+            implementation(libs.kotlinx.browser)
         }
         jvmMain.dependencies {
             // Skia natives for the current OS, needed to render previews on the JVM.

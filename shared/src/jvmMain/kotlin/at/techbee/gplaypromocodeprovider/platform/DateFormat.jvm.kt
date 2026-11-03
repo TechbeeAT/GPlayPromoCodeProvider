@@ -1,5 +1,7 @@
-package at.techbee.gplaypromocodeprovider.invite
+package at.techbee.gplaypromocodeprovider.platform
 
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -11,3 +13,9 @@ private val formatter = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.
 
 actual fun formatDateTime(instant: Instant): String =
     formatter.format(instant.toJavaInstant().atZone(ZoneId.systemDefault()))
+
+actual fun endOfLocalDay(utcDateMillis: Long): Instant {
+    val day = LocalDate.ofEpochDay(Math.floorDiv(utcDateMillis, 86_400_000L))
+    val end = day.atTime(LocalTime.of(23, 59, 59)).atZone(ZoneId.systemDefault())
+    return Instant.fromEpochMilliseconds(end.toInstant().toEpochMilli())
+}

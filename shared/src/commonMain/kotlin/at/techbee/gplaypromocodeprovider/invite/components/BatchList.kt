@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.api.AvailableBatch
-import at.techbee.gplaypromocodeprovider.invite.formatDateTime
+import at.techbee.gplaypromocodeprovider.platform.formatDateTime
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 
