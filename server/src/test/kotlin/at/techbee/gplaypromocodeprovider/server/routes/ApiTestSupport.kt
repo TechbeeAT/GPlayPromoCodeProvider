@@ -62,8 +62,8 @@ class ApiTestScope(val builder: ApplicationTestBuilder, val clock: TestClock) {
     }
 }
 
-/** Runs [block] against the full application with a fresh database. */
-fun apiTest(block: suspend ApiTestScope.() -> Unit) = testApplication {
+/** Runs [block] against the full application with a fresh database. [configure] can change the test config. */
+fun apiTest(configure: (ServerConfig) -> ServerConfig = { it }, block: suspend ApiTestScope.() -> Unit) = testApplication {
     val clock = TestClock()
     val config = ServerConfig(
         port = 0,
@@ -71,7 +71,7 @@ fun apiTest(block: suspend ApiTestScope.() -> Unit) = testApplication {
         adminUsername = ADMIN_USER,
         adminPassword = ADMIN_PASSWORD,
         cookieSecure = false,
-    )
+    ).let(configure)
     val db = createTestDatabase()
     application { module(config, db, clock) }
     ApiTestScope(this, clock).block()

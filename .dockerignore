@@ -1,0 +1,17 @@
+# Files Docker doesn't send to the build (the "build context"). Build outputs and caches from the
+# host would only slow down the build or, worse, mix into it; the image builds everything itself.
+.git
+.github
+.claude
+.gradle
+.kotlin
+.idea
+**/build/
+**/node_modules/
+local.properties
+*.iml
+.DS_Store
+# Local SQLite databases (they may contain real codes)
+data/
+server/data/
+*.db

@@ -1,0 +1,78 @@
+# CI: builds and tests every pull request and every push to main. See README.md ("CI").
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same pull request cancels the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      # Java 21 for the Gradle daemon and the server (gradle/gradle-daemon-jvm.properties).
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Caches Gradle's downloads and build outputs between runs.
+      - uses: gradle/actions/setup-gradle@v5
+
+      # The browser tests use the runner's preinstalled Chrome.
+      - name: Run all tests
+        run: ./gradlew --console=plain :shared:jsTest :shared:wasmJsTest :shared:jvmTest :api:jvmTest :server:test
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: "**/build/reports/tests/"
+
+  docker:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      # Builds the image like Fly.io will, but doesn't push it anywhere. Layers are cached in
+      # GitHub's cache, so unchanged steps (base images, apt packages) are fast.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploys main to Fly.io after the tests and the image build passed. Off until the repository
+  # variable FLY_DEPLOY is "true" and the secret FLY_API_TOKEN is set (README, "Deploying from CI").
+  deploy:
+    name: Deploy to Fly.io
+    needs: [test, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.FLY_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # One deployment at a time, never cancelled halfway.
+    concurrency:
+      group: fly-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
