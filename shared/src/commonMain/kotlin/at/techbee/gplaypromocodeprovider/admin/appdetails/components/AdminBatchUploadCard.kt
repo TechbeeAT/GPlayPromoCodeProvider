@@ -12,16 +12,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,7 +36,6 @@ import at.techbee.gplaypromocodeprovider.api.AdminBatch
 import at.techbee.gplaypromocodeprovider.api.BatchUploadResponse
 import at.techbee.gplaypromocodeprovider.api.CodeStats
 import at.techbee.gplaypromocodeprovider.platform.endOfLocalDay
-import at.techbee.gplaypromocodeprovider.platform.formatDate
 import at.techbee.gplaypromocodeprovider.platform.formatDateTime
 import kotlin.time.Instant
 
@@ -64,7 +58,7 @@ internal fun AdminBatchUploadCard(
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Upload codes", style = MaterialTheme.typography.titleMedium)
-            form.result?.let { UploadResult(it, onDismissResult) }
+            form.result?.let { AdminBatchUploadResult(it, onDismissResult) }
             OutlinedTextField(
                 value = form.description,
                 onValueChange = onDescriptionChange,
@@ -105,7 +99,7 @@ internal fun AdminBatchUploadCard(
     }
 
     if (pickingDate) {
-        ExpiryDatePickerDialog(
+        BatchExpiryDatePickerDialog(
             initial = form.expiryDateMillis,
             isSelectable = isSelectableExpiryDay,
             onPick = {
@@ -117,49 +111,9 @@ internal fun AdminBatchUploadCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ExpiryDatePickerDialog(
-    initial: Long?,
-    isSelectable: (Long) -> Boolean,
-    onPick: (Long?) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val pickerState = rememberDatePickerState(
-        initialSelectedDateMillis = initial,
-        // Days whose end has passed can't be picked; the server would reject them.
-        selectableDates = remember(isSelectable) {
-            object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long) = isSelectable(utcTimeMillis)
-            }
-        },
-    )
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = { onPick(pickerState.selectedDateMillis) }, enabled = pickerState.selectedDateMillis != null) {
-                Text("OK")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    ) {
-        DatePicker(
-            pickerState,
-            title = { Text("Codes valid until", Modifier.padding(start = 24.dp, top = 16.dp)) },
-            // Material's own headline formats the picked day (midnight UTC) in the browser's time zone, which
-            // shows the day before west of UTC. The end of the picked local day is that day everywhere.
-            headline = {
-                Text(
-                    pickerState.selectedDateMillis?.let { formatDate(endOfLocalDay(it)) } ?: "No date picked",
-                    Modifier.padding(start = 24.dp, end = 12.dp, bottom = 12.dp),
-                )
-            },
-        )
-    }
-}
 
 @Composable
-private fun UploadResult(result: BatchUploadResponse, onDismiss: () -> Unit) {
+private fun AdminBatchUploadResult(result: BatchUploadResponse, onDismiss: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -202,7 +156,7 @@ private fun UploadResult(result: BatchUploadResponse, onDismiss: () -> Unit) {
 private val previewDay = Instant.parse("2027-01-31T00:00:00Z").toEpochMilliseconds()
 
 @Composable
-private fun UploadPreview(form: UploadFormState) {
+private fun AdminBatchUploadPreview(form: UploadFormState) {
     PreviewTheme {
         AdminBatchUploadCard(
             form,
@@ -218,23 +172,23 @@ private fun UploadPreview(form: UploadFormState) {
 
 @Preview(widthDp = 600, heightDp = 500)
 @Composable
-private fun UploadEmptyPreview() = UploadPreview(UploadFormState())
+private fun AdminBatchUploadEmptyPreview() = AdminBatchUploadPreview(UploadFormState())
 
 @Preview(widthDp = 600, heightDp = 500)
 @Composable
-private fun UploadFilledPreview() = UploadPreview(
+private fun AdminBatchUploadFilledPreview() = AdminBatchUploadPreview(
     UploadFormState(description = "Beta wave 2", expiryDateMillis = previewDay, codes = "AAAA1111\nBBBB2222\n\nCCCC3333\n"),
 )
 
 @Preview(widthDp = 600, heightDp = 500)
 @Composable
-private fun UploadingPreview() = UploadPreview(
+private fun UploadingPreviewAdminBatch() = AdminBatchUploadPreview(
     UploadFormState(description = "Beta wave 2", expiryDateMillis = previewDay, codes = "AAAA1111\nBBBB2222", uploading = true),
 )
 
 @Preview(widthDp = 600, heightDp = 550)
 @Composable
-private fun UploadErrorPreview() = UploadPreview(
+private fun AdminBatchUploadErrorPreview() = AdminBatchUploadPreview(
     UploadFormState(
         expiryDateMillis = previewDay,
         codes = "AAAA1111",
@@ -244,7 +198,7 @@ private fun UploadErrorPreview() = UploadPreview(
 
 @Preview(widthDp = 600, heightDp = 750)
 @Composable
-private fun UploadResultPreview() = UploadPreview(
+private fun AdminBatchUploadResultPreview() = AdminBatchUploadPreview(
     UploadFormState(
         result = BatchUploadResponse(
             batch = AdminBatch(3, 1, "Beta wave 2", Instant.parse("2027-01-31T22:59:59Z"), Instant.parse("2026-11-03T10:00:00Z"), CodeStats(12, 0, 0)),
