@@ -197,7 +197,10 @@ The second call returns the app's `inviteToken`.
 - API models: `./gradlew :api:jvmTest`
 - Server: `./gradlew :server:test` (JVM, no browser needed; uses temporary SQLite files)
 
-The browser tests need Chrome or Chromium (Karma uses `CHROME_BIN` if set). Claude Code cloud sessions are
+The browser tests need Chrome or Chromium (Karma uses `CHROME_BIN` if set). They run in the time zone `America/New_York`
+(`TZ`, set in `shared/build.gradle.kts`), west of UTC, so date mix-ups between UTC and local time fail instead of
+passing unnoticed; `BrowserTimeZoneTest` checks that this setting reaches the browser. The JVM tests switch time zones
+themselves (`DateFormatTimeZoneTest`). Claude Code cloud sessions are
 prepared automatically by a SessionStart hook, see [CLAUDE.md](./CLAUDE.md#cloud-session-setup).
 
 ## Deployment

@@ -52,3 +52,9 @@ kotlin {
         }
     }
 }
+
+// The browser tests run west of UTC, where midnight UTC is still the day before, so time zone mix-ups
+// (like the date picker's headline showing the previous day) fail there instead of passing unnoticed.
+tasks.withType<org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest>().configureEach {
+    environment("TZ", "America/New_York")
+}
