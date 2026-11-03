@@ -238,6 +238,10 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
   - Compose draws onto a canvas, so the page has no DOM text. The UI was tested end to end with Playwright
     screenshots and clicks at coordinates; the view model is unit tested. Screen reader support of Compose for Web
     has not been checked.
+- **Open idea** (owner may come back to it): Google Play's redeem link (`https://play.google.com/redeem?code=…`) has no
+  package parameter; Play finds the app from the code. A second button "Open in Google Play"
+  (`https://play.google.com/store/apps/details?id=<packageName>`) could be shown when the app has a package name.
+  That needs `packageName` in `InviteResponse`, i.e. link holders would see it.
 - **Suggestion**: deleting apps and batches is not part of the API yet. Closing a batch early (e.g. a wave that
   should stop) would then need the API and an admin UI button.
 - **Note**: the admin login form is drawn by Compose on a canvas, so browser password managers can't fill it in.
