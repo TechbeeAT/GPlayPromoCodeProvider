@@ -50,7 +50,7 @@ private const val MAX_LISTED_DUPLICATES = 100
 
 /** The form for uploading a batch of codes, and the result of the last upload. */
 @Composable
-internal fun BatchUploadCard(
+internal fun AdminBatchUploadCard(
     form: UploadFormState,
     onDescriptionChange: (String) -> Unit,
     onExpiryDateChange: (Long?) -> Unit,
@@ -187,7 +187,7 @@ private val previewDay = Instant.parse("2027-01-31T00:00:00Z").toEpochMillisecon
 @Composable
 private fun UploadPreview(form: UploadFormState) {
     PreviewTheme {
-        BatchUploadCard(form, onDescriptionChange = {}, onExpiryDateChange = {}, onCodesChange = {}, onUpload = {}, onDismissResult = {})
+        AdminBatchUploadCard(form, onDescriptionChange = {}, onExpiryDateChange = {}, onCodesChange = {}, onUpload = {}, onDismissResult = {})
     }
 }
 

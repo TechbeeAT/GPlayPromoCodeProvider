@@ -20,7 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
 import at.techbee.gplaypromocodeprovider.admin.app.components.AdminBatchList
-import at.techbee.gplaypromocodeprovider.admin.app.components.BatchUploadCard
+import at.techbee.gplaypromocodeprovider.admin.app.components.AdminBatchUploadCard
 import at.techbee.gplaypromocodeprovider.admin.app.components.InviteLinkCard
 import at.techbee.gplaypromocodeprovider.admin.app.components.RegenerateLinkDialog
 import at.techbee.gplaypromocodeprovider.admin.app.components.inviteLink
@@ -92,7 +92,7 @@ private fun AppDetailPage(state: AppDetailUiState, origin: String, actions: AppD
             is AppDetailContent.Loaded -> {
                 AppHeader(content.app, actions.onEdit)
                 InviteLinkCard(inviteLink(origin, content.app.inviteToken), actions.onRegenerate)
-                BatchUploadCard(
+                AdminBatchUploadCard(
                     form = state.upload,
                     onDescriptionChange = actions.onDescriptionChange,
                     onExpiryDateChange = actions.onExpiryDateChange,
