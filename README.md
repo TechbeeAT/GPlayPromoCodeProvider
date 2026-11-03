@@ -68,6 +68,10 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Atomic hand-out | One SQL statement: `UPDATE promo_code SET consumed_at = ? WHERE consumed_at IS NULL AND id = (SELECT … LIMIT 1) RETURNING code`. Transactions use `BEGIN IMMEDIATE` and a busy timeout, so concurrent writers queue up instead of failing. |
 | Expiry | A batch's `expiresAt` is an exact instant (UTC). From that instant on, its remaining codes count as expired. The admin UI will turn a picked date into an instant. |
 | API client | `ApiClient` in `shared` (package `client`), on the Ktor client with the browser's `fetch` for JS and Wasm. Every call returns an `ApiResult` (`Success`, `Failure` with status and `ApiError`, `NetworkError`) instead of throwing, so the UI has to handle each case. JSON is parsed leniently (`ignoreUnknownKeys`, `coerceInputValues`), so an older web app keeps working against a newer server. Path segments are encoded including `/`, so an invite token can't change the request path. |
+| Invite page | The web app picks its screen from the URL path (`/invite/<token>`; anything else shows a short home page). There is no in-app navigation, so a deep link and a page reload behave the same. The page lists the app's batches, hands out a code per "Get code" tap, and shows the code with "Copy code" and "Redeem on Google Play". The codes received on the page stay listed (newest first, also if the link stops working meanwhile), but only until the page is closed or reloaded. After every request the batch list is refreshed, so a batch that just ran out disappears. |
+| Compose previews | `shared` has a `jvm` target only so the IDE can render `@Preview`s (and the tests also run fast on the JVM). There is no desktop app. Browser-only code (date formatting, clipboard entry) is `expect`/`actual` with a JVM version in `jvmMain`. |
+| Codes left per batch | Not shown to users. The invite API sends no counts, so a link holder learns nothing about volumes. |
+| Dates in the user UI | Shown in the browser's time zone as English date and 24-hour time ("31 Jan 2027, 23:59"), formatted by the browser (`Intl`), so daylight saving time is right. |
 | Upload rules | Codes are unique per app (the same code may exist in two different apps). Duplicates, against existing codes of the app or within the upload, are skipped and returned to the admin. An upload with no new code, an expiry date in the past, or a code longer than 128 characters is rejected. At most 10,000 codes per upload. |
 
 ---
@@ -128,11 +132,14 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
 
 - [`/api`](./api/src/commonMain/kotlin): the REST API models, shared by server and web app.
 - [`/shared`](./shared/src): code shared by the Compose Multiplatform apps (UI, view models).
-  - [`commonMain`](./shared/src/commonMain/kotlin): code common to all targets, e.g. the app shell (`App.kt`)
-    and the API client (`client`).
+  - [`commonMain`](./shared/src/commonMain/kotlin): code common to all targets: the app shell (`App.kt`,
+    picks the screen by `Route`), the API client (`client`) and the invite page (`invite`: screen, view model, UI state).
+  - [`webMain`](./shared/src/webMain/kotlin): code for the browser targets (JS and Wasm) only, e.g. date formatting with `Intl`.
+  - [`jvmMain`](./shared/src/jvmMain/kotlin): the JVM versions of that code, for the IDE's Compose previews.
   - [`commonTest`](./shared/src/commonTest/kotlin): tests, run in a headless browser for both JS and Wasm.
     The API client is tested against Ktor's `MockEngine`.
-- [`/webApp`](./webApp/src): the web entry point (`main.kt`, `index.html`, styles).
+- [`/webApp`](./webApp/src): the web entry point (`main.kt`, `index.html`, styles). `webpack.config.d` configures
+  the development server.
 - [`/server`](./server/src): the Ktor backend.
   - `db`: database connection, migrations, Exposed table mappings.
   - `domain`: business logic (code allocation, upload, statistics, validation), unit tested.
@@ -142,15 +149,27 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
 
 ## Running the app
 
-Web app:
-- Wasm target (faster, modern browsers): `./gradlew :webApp:wasmJsBrowserDevelopmentRun`
-- JS target (slower, supports older browsers): `./gradlew :webApp:jsBrowserDevelopmentRun`
-
 Server (port 8080 by default):
 
 ```bash
 ADMIN_USERNAME=admin ADMIN_PASSWORD=secret COOKIE_SECURE=false ./gradlew :server:run
 ```
+
+Web app development server on <http://localhost:8081>, forwarding `/api` to the server on port 8080
+(start the server first):
+- Wasm target (faster, modern browsers): `./gradlew :webApp:wasmJsBrowserDevelopmentRun`
+- JS target (slower, supports older browsers): `./gradlew :webApp:jsBrowserDevelopmentRun`
+
+Every path is answered with `index.html`, so invite links like `http://localhost:8081/invite/<token>` work, also on
+reload. Create an app and a batch through the admin API (the admin UI follows in step #6), e.g.:
+
+```bash
+curl -c cookies -H 'Content-Type: application/json' -d '{"username":"admin","password":"secret"}' localhost:8080/api/admin/login
+curl -b cookies -H 'Content-Type: application/json' -d '{"name":"My App"}' localhost:8080/api/admin/apps
+curl -b cookies -H 'Content-Type: application/json' -d '{"description":"Beta","expiresAt":"2027-01-31T23:00:00Z","codes":"CODE1\nCODE2"}' localhost:8080/api/admin/apps/1/batches
+```
+
+The second call returns the app's `inviteToken`.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
@@ -164,6 +183,7 @@ ADMIN_USERNAME=admin ADMIN_PASSWORD=secret COOKIE_SECURE=false ./gradlew :server
 
 - Wasm target: `./gradlew :shared:wasmJsTest`
 - JS target: `./gradlew :shared:jsTest`
+- JVM: `./gradlew :shared:jvmTest` (the same tests, fast and without a browser)
 - API models: `./gradlew :api:jvmTest`
 - Server: `./gradlew :server:test` (JVM, no browser needed; uses temporary SQLite files)
 
@@ -187,21 +207,28 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 3. ✅ [#2](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/2) Development setup: SessionStart hook so cloud AI sessions can build and test
 4. ✅ [#3](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/3) `server` module (Ktor) with SQLite persistence and the REST API, plus tests
 5. ✅ [#4](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/4) Shared API models, API client in the web app
-6. [#5](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/5) User UI: invite link page, batch list, request a code, copy and redeem
+6. ✅ [#5](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/5) User UI: invite link page, batch list, request a code, copy and redeem
 7. [#6](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/6) Admin UI: login, manage apps and invite links, upload batches, statistics
 8. [#7](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/7) Packaging as a Docker image and deployment to Fly.io, plus CI
 
 ### Follow-ups and open points
 
-- **Step #5**: the web app's dev server (`…BrowserDevelopmentRun`) and the Ktor server both default to
-  port 8080. To try the UI against a local server, move the dev server to another port and proxy `/api`
-  to `localhost:8080` (a file in `webApp/webpack.config.d`), so the browser sees one origin and sends the
-  session cookie. Create the client with the page's origin (Ktor's `URLBuilder.origin`).
-- **Step #7**: serve the compiled web app from the server. Behind Fly.io's proxy, TLS ends at the
+- **Step #6**: the admin screens go into `App.kt`'s `Route` (e.g. `/admin`). The dev server already proxies
+  `/api`, so the session cookie works locally.
+- **Step #7**: serve the compiled web app from the server. Unknown non-`/api` paths (e.g. `/invite/<token>`) must
+  get `index.html` (SPA fallback, like the dev server's `historyApiFallback`); `index.html` loads its scripts with
+  absolute paths for this reason. Behind Fly.io's proxy, TLS ends at the
   proxy, so Ktor needs `XForwardedHeaders` to see `https` (otherwise it refuses to send the `Secure`
   session cookie).
 - **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing.
   The invite endpoints could be rate-limited too.
+- **Suggestion**: received codes are lost when the user reloads or closes the invite page (the page says so).
+  Keeping them in the browser's `localStorage` per invite token would make that safer.
+- **Suggestion**: Compose for Web has no monospace font built in, so codes are shown in the default font, where
+  `O`/`0` and `I`/`l` can look alike. Bundling a monospace font (Compose resources) would help users typing a code by hand.
+- **Note**: Compose draws onto a canvas, so the page has no DOM text. The UI was tested end to end with Playwright
+  screenshots and clicks at coordinates; the view model is unit tested. Accessibility (screen readers) of Compose for
+  Web is worth a look before a public launch.
 - **Suggestion**: deleting apps and batches is not part of the API yet.
 - **Decision**: `server/.../db/Tables.kt` mirrors the SQL in `Migrations.kt` by hand; nothing checks
   that they match (the tests only catch mismatches in columns they use). Fine at three tables and with

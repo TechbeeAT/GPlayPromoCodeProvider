@@ -7,6 +7,9 @@ plugins {
 }
 
 kotlin {
+    // Only for the IDE's Compose previews (rendered on the JVM) and fast tests. The app itself runs in
+    // the browser (js, wasmJs); there is no desktop app.
+    jvm()
     js {
         browser()
         binaries.executable()
@@ -37,6 +40,14 @@ kotlin {
         }
         webMain.dependencies {
             implementation(libs.ktor.client.js)
+        }
+        jvmMain.dependencies {
+            // Skia natives for the current OS, needed to render previews on the JVM.
+            implementation(compose.desktop.currentOs)
+            implementation(libs.ktor.client.cio)
+        }
+        jvmTest.dependencies {
+            implementation(libs.kotlin.testJunit)
         }
     }
 }
