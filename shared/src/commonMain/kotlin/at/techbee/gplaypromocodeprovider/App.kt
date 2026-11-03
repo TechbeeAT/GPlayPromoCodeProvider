@@ -62,7 +62,5 @@ private fun HomeScreen() {
 @Preview(widthDp = 400, heightDp = 300)
 @Composable
 private fun HomeScreenPreview() {
-    MaterialTheme {
-        Surface { HomeScreen() }
-    }
+    PreviewTheme { HomeScreen() }
 }

@@ -32,8 +32,8 @@ import at.techbee.gplaypromocodeprovider.invite.plainTextClipEntry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
+import at.techbee.gplaypromocodeprovider.PreviewTheme
+import kotlin.time.Instant
 import kotlin.time.Duration.Companion.milliseconds
 
 
@@ -109,20 +109,20 @@ internal fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
     }
 }
 
-@Composable
-@Preview(widthDp = 400, heightDp = 600)
-private fun CodeCard_Preview() {
-    CodeCard(
-        code = ReceivedCode("MyCode", "MyBatchDescription", expiresAt = Clock.System.now().plus(2.days)),
-        prominent = true
-    )
-}
+private val previewCode = ReceivedCode("WAVE2AAAAAAAAAAAAAAA", "Beta wave 2", Instant.parse("2027-01-31T22:59:00Z"))
 
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun CodeCard_prominent_Preview() {
-    CodeCard(
-        code = ReceivedCode("MyCode", "MyBatchDescription", expiresAt = Clock.System.now().plus(2.days)),
-        prominent = false
-    )
+    PreviewTheme {
+        CodeCard(code = previewCode, prominent = true)
+    }
+}
+
+@Composable
+@Preview(widthDp = 400, heightDp = 600)
+private fun CodeCard_earlier_Preview() {
+    PreviewTheme {
+        CodeCard(code = previewCode, prominent = false)
+    }
 }

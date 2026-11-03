@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import at.techbee.gplaypromocodeprovider.PreviewTheme
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.invite.InviteNotice
 
@@ -39,17 +40,23 @@ internal fun NoticeCard(notice: InviteNotice, onDismiss: () -> Unit) {
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun NoticeCard_Preview_BATCH_RAN_OUT() {
-    NoticeCard(InviteNotice.BATCH_RAN_OUT) {}
+    PreviewTheme {
+        NoticeCard(InviteNotice.BATCH_RAN_OUT) {}
+    }
 }
 
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun NoticeCard_Preview_SERVER_ERROR() {
-    NoticeCard(InviteNotice.SERVER_ERROR) {}
+    PreviewTheme {
+        NoticeCard(InviteNotice.SERVER_ERROR) {}
+    }
 }
 
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun NoticeCard_Preview_NETWORK_ERROR() {
-    NoticeCard(InviteNotice.NETWORK_ERROR) {}
+    PreviewTheme {
+        NoticeCard(InviteNotice.NETWORK_ERROR) {}
+    }
 }

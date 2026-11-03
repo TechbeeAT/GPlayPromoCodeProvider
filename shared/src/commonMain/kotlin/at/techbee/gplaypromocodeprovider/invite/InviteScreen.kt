@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.api.AvailableBatch
 import at.techbee.gplaypromocodeprovider.invite.components.BatchList
 import at.techbee.gplaypromocodeprovider.invite.components.CodeCard
@@ -114,10 +114,8 @@ private val previewCodes = listOf(
 
 @Composable
 private fun InvitePagePreview(state: InviteUiState) {
-    MaterialTheme {
-        Surface {
-            InvitePage(state = state, onRequestCode = {}, onRetry = {}, onDismissNotice = {})
-        }
+    PreviewTheme {
+        InvitePage(state = state, onRequestCode = {}, onRetry = {}, onDismissNotice = {})
     }
 }
 
