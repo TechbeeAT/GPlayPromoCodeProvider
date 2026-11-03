@@ -31,10 +31,12 @@ import at.techbee.gplaypromocodeprovider.platform.pushBrowserPath
  * each other without a page load ([pushBrowserPath]); the browser's back and forward buttons work.
  *
  * @param path the page's URL path when it was loaded, e.g. `/invite/abc`
- * @param origin the origin the page was loaded from; the API is expected there
+ * @param origin the origin the page was loaded from, for building invite links
+ * @param api the client for the server's API. Created by the caller and shared by all screens; the view
+ *   models keep using it, so it must live as long as the page.
  */
 @Composable
-fun App(path: String, origin: String) {
+fun App(path: String, origin: String, api: ApiClient) {
     var currentPath by remember { mutableStateOf(path) }
     DisposableEffect(Unit) {
         val stop = observeBrowserPath { currentPath = it }
@@ -45,8 +47,6 @@ fun App(path: String, origin: String) {
         pushBrowserPath(to.path)
         currentPath = to.path
     }
-    val api = remember(origin) { ApiClient(origin) }
-    DisposableEffect(api) { onDispose { api.close() } }
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -78,7 +78,5 @@ private fun HomeScreen() {
 @Preview(widthDp = 400, heightDp = 300)
 @Composable
 private fun HomeScreenPreview() {
-    MaterialTheme {
-        Surface { HomeScreen() }
-    }
+    PreviewTheme { HomeScreen() }
 }

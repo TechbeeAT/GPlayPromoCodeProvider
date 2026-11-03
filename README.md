@@ -67,8 +67,8 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Database access | [Exposed](https://www.jetbrains.com/exposed/) DSL on the SQLite JDBC driver. Migrations are plain SQL versioned with `PRAGMA user_version` (no extra migration library). Timestamps are stored as UTC epoch milliseconds. |
 | Atomic hand-out | One SQL statement: `UPDATE promo_code SET consumed_at = ? WHERE consumed_at IS NULL AND id = (SELECT … LIMIT 1) RETURNING code`. Transactions use `BEGIN IMMEDIATE` and a busy timeout, so concurrent writers queue up instead of failing. |
 | Expiry | A batch's `expiresAt` is an exact instant (UTC). From that instant on, its remaining codes count as expired. In the admin UI the admin picks a day; the codes are valid until the end of that day (23:59:59) in the admin's browser time zone. |
-| API client | `ApiClient` in `shared` (package `client`), on the Ktor client with the browser's `fetch` for JS and Wasm. Every call returns an `ApiResult` (`Success`, `Failure` with status and `ApiError`, `NetworkError`) instead of throwing, so the UI has to handle each case. JSON is parsed leniently (`ignoreUnknownKeys`, `coerceInputValues`), so an older web app keeps working against a newer server. Path segments are encoded including `/`, so an invite token can't change the request path. |
-| Invite page | The web app picks its screen from the URL path (`/invite/<token>`; `/admin…` see below; anything else shows a short home page). A deep link and a page reload behave the same. The page lists the app's batches, hands out a code per "Get code" tap, and shows the code with "Copy code" and "Redeem on Google Play". The codes received on the page stay listed (newest first, also if the link stops working meanwhile), but only until the page is closed or reloaded. After every request the batch list is refreshed, so a batch that just ran out disappears. |
+| API client | `ApiClient` in `shared` (package `client`), on the Ktor client with the browser's `fetch` for JS and Wasm. Every call returns an `ApiResult` (`Success`, `Failure` with status and `ApiError`, `NetworkError`) instead of throwing, so the UI has to handle each case. JSON is parsed leniently (`ignoreUnknownKeys`, `coerceInputValues`), so an older web app keeps working against a newer server. Path segments are encoded including `/`, so an invite token can't change the request path. `webApp/main.kt` creates one client for the page's lifetime and passes it to `App`; it is never closed. On the `jvm` target (previews, tests) there is no default engine, so one must be passed. |
+| Invite page | The web app picks its screen from the URL path (`/invite/<token>`; `/admin…` see below; anything else shows a short home page). A deep link and a page reload behave the same. The page lists the app's batches, hands out a code per "Get code" tap, and shows the code with "Copy code" and "Redeem on Google Play". The codes received on the page stay listed (newest first, also if the link stops working meanwhile), but only until the page is closed or reloaded. After every request the batch list is refreshed, so a batch that just ran out disappears. A batch that ran out (`409`) or no longer exists (`404`) is removed from the list right away, with a short notice, so it isn't offered again even if the refresh fails. |
 | Compose previews | `shared` has a `jvm` target only so the IDE can render `@Preview`s (and the tests also run fast on the JVM). There is no desktop app. Browser-only code (date formatting, clipboard entry) is `expect`/`actual` with a JVM version in `jvmMain`. |
 | Codes left per batch | Not shown to users. The invite API sends no counts, so a link holder learns nothing about volumes. |
 | Dates in the user UI | Shown in the browser's time zone as English date and 24-hour time ("31 Jan 2027, 23:59"), formatted by the browser (`Intl`), so daylight saving time is right. |
@@ -136,9 +136,10 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
 - [`/api`](./api/src/commonMain/kotlin): the REST API models, shared by server and web app.
 - [`/shared`](./shared/src): code shared by the Compose Multiplatform apps (UI, view models).
   - [`commonMain`](./shared/src/commonMain/kotlin): code common to all targets: the app shell (`App.kt`,
-    picks the screen by `Route`), the API client (`client`), the invite page (`invite`: screen, view model, UI state),
-    the admin area (`admin`: session and login, `apps` list, `app` page with upload) and platform helpers
-    (`platform`: `expect` declarations for dates, clipboard and browser history).
+    picks the screen by `Route`), the API client (`client`), the invite page (`invite`: screen, view model,
+    UI state; its building blocks such as the batch list and the code card in `invite/components`), the admin area
+    (`admin`: session and login, `apps` list, `app` page with upload) and platform helpers (`platform`: `expect`
+    declarations for dates, clipboard and browser history). `PreviewTheme` wraps every `@Preview`.
   - [`webMain`](./shared/src/webMain/kotlin): code for the browser targets (JS and Wasm) only, e.g. date formatting with `Intl`
     and the History API.
   - [`jvmMain`](./shared/src/jvmMain/kotlin): the JVM versions of that code, for the IDE's Compose previews.
@@ -227,13 +228,14 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
   session cookie).
 - **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing.
   The invite endpoints could be rate-limited too.
-- **Suggestion**: received codes are lost when the user reloads or closes the invite page (the page says so).
-  Keeping them in the browser's `localStorage` per invite token would make that safer.
-- **Suggestion**: Compose for Web has no monospace font built in, so codes are shown in the default font, where
-  `O`/`0` and `I`/`l` can look alike. Bundling a monospace font (Compose resources) would help users typing a code by hand.
-- **Note**: Compose draws onto a canvas, so the page has no DOM text. The UI was tested end to end with Playwright
-  screenshots and clicks at coordinates; the view model is unit tested. Accessibility (screen readers) of Compose for
-  Web is worth a look before a public launch.
+- **Accepted for now** (decided after step #5, no action planned):
+  - Received codes are lost when the user reloads or closes the invite page (the page says so). Keeping them in
+    the browser's `localStorage` per invite token would make that safer.
+  - Compose for Web has no monospace font built in, so codes are shown in the default font, where `O`/`0` and
+    `I`/`l` can look alike. Bundling a monospace font (Compose resources) would help users typing a code by hand.
+  - Compose draws onto a canvas, so the page has no DOM text. The UI was tested end to end with Playwright
+    screenshots and clicks at coordinates; the view model is unit tested. Screen reader support of Compose for Web
+    has not been checked.
 - **Suggestion**: deleting apps and batches is not part of the API yet. Closing a batch early (e.g. a wave that
   should stop) would then need the API and an admin UI button.
 - **Note**: the admin login form is drawn by Compose on a canvas, so browser password managers can't fill it in.

@@ -32,8 +32,8 @@ import at.techbee.gplaypromocodeprovider.platform.plainTextClipEntry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
+import at.techbee.gplaypromocodeprovider.PreviewTheme
+import at.techbee.gplaypromocodeprovider.invite.PreviewData
 import kotlin.time.Duration.Companion.milliseconds
 
 
@@ -43,6 +43,7 @@ internal fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
     var copyResult by remember(code.code) { mutableStateOf<Boolean?>(null) }
+    val expiry = remember(code.expiresAt) { formatDateTime(code.expiresAt) }
     LaunchedEffect(copyResult) {
         if (copyResult == true) {
             delay(2_000.milliseconds)
@@ -69,7 +70,7 @@ internal fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
                 )
             }
             Text(
-                listOfNotNull(code.batchDescription, "valid until ${formatDateTime(code.expiresAt)}")
+                listOfNotNull(code.batchDescription, "valid until $expiry")
                     .joinToString(" · ")
                     .replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.bodySmall,
@@ -111,18 +112,16 @@ internal fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
 
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
-private fun CodeCard_Preview() {
-    CodeCard(
-        code = ReceivedCode("MyCode", "MyBatchDescription", expiresAt = Clock.System.now().plus(2.days)),
-        prominent = true
-    )
+private fun CodeCard_prominent_Preview() {
+    PreviewTheme {
+        CodeCard(code = PreviewData.codes.first(), prominent = true)
+    }
 }
 
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
-private fun CodeCard_prominent_Preview() {
-    CodeCard(
-        code = ReceivedCode("MyCode", "MyBatchDescription", expiresAt = Clock.System.now().plus(2.days)),
-        prominent = false
-    )
+private fun CodeCard_earlier_Preview() {
+    PreviewTheme {
+        CodeCard(code = PreviewData.codes.first(), prominent = false)
+    }
 }

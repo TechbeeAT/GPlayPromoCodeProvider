@@ -44,8 +44,11 @@ enum class FailureReason {
 
 /** Outcome of a code request that didn't produce a code. */
 enum class InviteNotice {
-    /** The batch ran out (or expired) while the page was open. The batch list has been refreshed. */
+    /** The batch ran out (or expired) while the page was open. It has been removed from the list. */
     BATCH_RAN_OUT,
+
+    /** The batch no longer exists (e.g. the admin removed it). It has been removed from the list. */
+    BATCH_UNAVAILABLE,
     NETWORK_ERROR,
     SERVER_ERROR,
 }

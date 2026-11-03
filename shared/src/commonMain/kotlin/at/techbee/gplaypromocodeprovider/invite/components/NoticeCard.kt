@@ -13,14 +13,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.invite.InviteNotice
 
 @Composable
 internal fun NoticeCard(notice: InviteNotice, onDismiss: () -> Unit) {
     val text = when (notice) {
-        InviteNotice.BATCH_RAN_OUT -> "Sorry, that batch has just run out. The list below is up to date."
-        InviteNotice.NETWORK_ERROR -> "The server can't be reached. Check your internet connection and try again."
-        InviteNotice.SERVER_ERROR -> "The server isn't responding properly right now. Please try again in a moment."
+        InviteNotice.BATCH_RAN_OUT -> "Sorry, that batch has just run out. Please pick another one."
+        InviteNotice.BATCH_UNAVAILABLE -> "Sorry, that batch is no longer available. Please pick another one."
+        InviteNotice.NETWORK_ERROR -> NETWORK_ERROR_TEXT
+        InviteNotice.SERVER_ERROR -> SERVER_ERROR_TEXT
     }
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -39,17 +41,31 @@ internal fun NoticeCard(notice: InviteNotice, onDismiss: () -> Unit) {
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun NoticeCard_Preview_BATCH_RAN_OUT() {
-    NoticeCard(InviteNotice.BATCH_RAN_OUT) {}
+    PreviewTheme {
+        NoticeCard(InviteNotice.BATCH_RAN_OUT) {}
+    }
+}
+
+@Composable
+@Preview(widthDp = 400, heightDp = 600)
+private fun NoticeCard_Preview_BATCH_UNAVAILABLE() {
+    PreviewTheme {
+        NoticeCard(InviteNotice.BATCH_UNAVAILABLE) {}
+    }
 }
 
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun NoticeCard_Preview_SERVER_ERROR() {
-    NoticeCard(InviteNotice.SERVER_ERROR) {}
+    PreviewTheme {
+        NoticeCard(InviteNotice.SERVER_ERROR) {}
+    }
 }
 
 @Composable
 @Preview(widthDp = 400, heightDp = 600)
 private fun NoticeCard_Preview_NETWORK_ERROR() {
-    NoticeCard(InviteNotice.NETWORK_ERROR) {}
+    PreviewTheme {
+        NoticeCard(InviteNotice.NETWORK_ERROR) {}
+    }
 }
