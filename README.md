@@ -226,6 +226,10 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 - **Note**: Compose draws onto a canvas, so the page has no DOM text. The UI was tested end to end with Playwright
   screenshots and clicks at coordinates; the view model is unit tested. Accessibility (screen readers) of Compose for
   Web is worth a look before a public launch.
+- **Open question**: the composables have `@Preview`s (one per state of the invite page), but IntelliJ IDEA and
+  Android Studio render Compose previews only through a JVM (desktop) or Android target. `shared` has only `js` and
+  `wasmJs`, so the previews may not render in the IDE. Adding a `jvm()` target to `shared` just for previews would
+  need JVM versions of the browser-only code (date formatting) and a JVM Ktor engine.
 - **Suggestion**: deleting apps and batches is not part of the API yet.
 - **Decision**: `server/.../db/Tables.kt` mirrors the SQL in `Migrations.kt` by hand; nothing checks
   that they match (the tests only catch mismatches in columns they use). Fine at three tables and with

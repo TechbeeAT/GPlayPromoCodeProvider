@@ -18,6 +18,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,12 +37,14 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import at.techbee.gplaypromocodeprovider.api.AvailableBatch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Instant
 
 /** The page behind an invite link: the app's batches, a "Get code" button each, and the received codes. */
 @Composable
@@ -259,3 +262,76 @@ private fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
         }
     }
 }
+
+// Previews: one per state of the page, at phone width. Sample data only; nothing calls the server.
+
+private val previewBatches = listOf(
+    AvailableBatch(1, "Beta wave 2", Instant.parse("2027-01-31T22:59:00Z")),
+    AvailableBatch(2, null, Instant.parse("2026-12-31T22:59:00Z")),
+)
+
+private val previewCodes = listOf(
+    ReceivedCode("WAVE2BBBBBBBBBBBBBBB", "Beta wave 2", Instant.parse("2027-01-31T22:59:00Z")),
+    ReceivedCode("WAVE2AAAAAAAAAAAAAAA", "Beta wave 2", Instant.parse("2027-01-31T22:59:00Z")),
+    ReceivedCode("SINGLEXXXXXXXXXXXXXX", null, Instant.parse("2026-12-31T22:59:00Z")),
+)
+
+@Composable
+private fun InvitePagePreview(state: InviteUiState) {
+    MaterialTheme {
+        Surface {
+            InvitePage(state = state, onRequestCode = {}, onRetry = {}, onDismissNotice = {})
+        }
+    }
+}
+
+@Preview(widthDp = 400, heightDp = 300)
+@Composable
+private fun LoadingPreview() = InvitePagePreview(InviteUiState(content = InviteContent.Loading))
+
+@Preview(widthDp = 400, heightDp = 300)
+@Composable
+private fun InvalidLinkPreview() = InvitePagePreview(InviteUiState(content = InviteContent.InvalidLink))
+
+@Preview(widthDp = 400, heightDp = 300)
+@Composable
+private fun LoadFailedPreview() =
+    InvitePagePreview(InviteUiState(content = InviteContent.LoadFailed(FailureReason.NETWORK)))
+
+@Preview(widthDp = 400, heightDp = 300)
+@Composable
+private fun NoBatchesPreview() =
+    InvitePagePreview(InviteUiState(content = InviteContent.Loaded("Jtx Board", emptyList())))
+
+@Preview(widthDp = 400, heightDp = 500)
+@Composable
+private fun BatchesPreview() =
+    InvitePagePreview(InviteUiState(content = InviteContent.Loaded("Jtx Board", previewBatches)))
+
+@Preview(widthDp = 400, heightDp = 500)
+@Composable
+private fun RequestingPreview() = InvitePagePreview(
+    InviteUiState(content = InviteContent.Loaded("Jtx Board", previewBatches), requestingBatchId = 1),
+)
+
+@Preview(widthDp = 400, heightDp = 1100)
+@Composable
+private fun CodesReceivedPreview() = InvitePagePreview(
+    InviteUiState(content = InviteContent.Loaded("Jtx Board", previewBatches), receivedCodes = previewCodes),
+)
+
+@Preview(widthDp = 400, heightDp = 800)
+@Composable
+private fun BatchRanOutPreview() = InvitePagePreview(
+    InviteUiState(
+        content = InviteContent.Loaded("Jtx Board", previewBatches.take(1)),
+        receivedCodes = previewCodes.take(1),
+        notice = InviteNotice.BATCH_RAN_OUT,
+    ),
+)
+
+@Preview(widthDp = 400, heightDp = 600)
+@Composable
+private fun InvalidLinkWithCodesPreview() = InvitePagePreview(
+    InviteUiState(content = InviteContent.InvalidLink, receivedCodes = previewCodes.take(2)),
+)
