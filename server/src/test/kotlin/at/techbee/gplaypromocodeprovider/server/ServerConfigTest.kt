@@ -23,10 +23,11 @@ class ServerConfigTest {
                 "ADMIN_USERNAME" to "admin",
                 "ADMIN_PASSWORD" to "pw",
                 "COOKIE_SECURE" to "false",
+                "WEB_DIR" to "/app/web",
             ),
         )
 
-        assertEquals(ServerConfig(9000, "/data/codes.db", "admin", "pw", cookieSecure = false), config)
+        assertEquals(ServerConfig(9000, "/data/codes.db", "admin", "pw", cookieSecure = false, webDir = "/app/web"), config)
     }
 
     @Test

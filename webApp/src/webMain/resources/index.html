@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Relative URLs resolve from the root, also on /invite/<token> and /admin/apps/1: the production
+         build's loader and webpack chunks load further files with relative URLs (and the server
+         answers unknown paths with this page, not a 404). -->
+    <base href="/">
     <title>GPlayPromoCodeProvider</title>
     <link type="text/css" rel="stylesheet" href="/styles.css">
 </head>

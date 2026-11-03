@@ -7,8 +7,8 @@ Admins upload batches of promo codes for an app and share the app's invite link.
 pick one of the available batches and request a code. The platform hands out an unused code from that
 batch and marks it as consumed. It works for **any** app: nothing is tied to a specific product.
 
-> **Status:** Early stage. This README describes the target specification; the implementation is being
-> built step by step. The project is also a showcase for AI-assisted development (see [CLAUDE.md](./CLAUDE.md)).
+> **Status:** All roadmap steps are implemented; see the [follow-ups](#follow-ups-and-open-points). The project was
+> built step by step and is also a showcase for AI-assisted development (see [CLAUDE.md](./CLAUDE.md)).
 
 ---
 
@@ -59,7 +59,10 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Database | SQLite (one file, stored on a persistent volume in production). |
 | Code upload | Text field, one code per line, multiple codes at once. CSV import may come later. |
 | Which code is handed out | The user picks a batch (app, description, expiry date); any available code of that batch is handed out. |
-| Deployment | One Docker image (Ktor server also serves the web app), deployable to [Fly.io](https://fly.io). |
+| Deployment | One Docker image (Ktor server also serves the web app), deployable to [Fly.io](https://fly.io). One machine with one volume (SQLite), stopped when idle. Details in [Deployment](#deployment). |
+| Web app in production | The Wasm build with the JS build as fallback (Compose's `composeCompatibilityBrowserDistribution`), served by Ktor from `WEB_DIR`: `index.html` for every path that isn't a file, gzip, `Cache-Control: no-cache`. |
+| Proxy headers | Ktor trusts `X-Forwarded-*` headers (`XForwardedHeaders`), so it knows the browser used HTTPS behind Fly.io's proxy and sends the `Secure` cookie. A client could fake them when talking to the server directly; nothing relies on the client address, so that's harmless now. A future rate limit per client must use Fly.io's `Fly-Client-IP` instead. |
+| CI | GitHub Actions: all tests and a Docker image build on every pull request and push to `main`. Deploying `main` to Fly.io is built in but off until enabled (repository variable `FLY_DEPLOY`). |
 | Language | English only. |
 | Build JDK | Java 21, any vendor (Gradle daemon criteria). Not pinned to Azul so cloud AI sessions can use the preinstalled OpenJDK. |
 | API models | Separate KMP module `api` (jvm, js, wasmJs), only kotlinx.serialization. The server doesn't pull in Compose. |
@@ -84,10 +87,10 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Part | Technology | Module |
 |------|------------|--------|
 | Web UI | [Compose Multiplatform](https://kotlinlang.org/compose-multiplatform/) for Web (Wasm, with a JS fallback) | `webApp`, `shared` |
-| Server / REST API | [Ktor](https://ktor.io/) (Kotlin/JVM), will also serve the compiled web app | `server` |
+| Server / REST API | [Ktor](https://ktor.io/) (Kotlin/JVM), also serves the compiled web app | `server` |
 | Shared models | Kotlin Multiplatform (`commonMain`), `kotlinx.serialization` DTOs used by both client and server | `api` |
 | Persistence | SQLite via Exposed, accessed by the server only | `server` |
-| Packaging | Docker image, deployed to Fly.io with a volume for the SQLite file | *(planned)* |
+| Packaging | Docker image, deployed to Fly.io with a volume for the SQLite file; CI on GitHub Actions | `Dockerfile`, `fly.toml`, `.github/workflows` |
 
 ### Domain model
 
@@ -117,6 +120,8 @@ app all give the same `404`):
 |-----------------|----------|
 | `GET /api/invite/{token}` | `InviteResponse`: app name and batches with available, non-expired codes |
 | `POST /api/invite/{token}/batches/{batchId}/code` | `PromoCodeResponse` with one code, or `409 no_code_available` |
+
+`GET /api/health` answers `200 ok` (Fly.io's health check). Unknown `/api` paths get `404 not_found`.
 
 Admin endpoints (all except login and logout need the session cookie, otherwise `401`):
 
@@ -154,7 +159,10 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
 - [`/server`](./server/src): the Ktor backend.
   - `db`: database connection, migrations, Exposed table mappings.
   - `domain`: business logic (code allocation, upload, statistics, validation), unit tested.
-  - `routes`: the HTTP endpoints and admin authentication.
+  - `routes`: the HTTP endpoints, admin authentication and serving the web app.
+- [`Dockerfile`](./Dockerfile), [`docker-entrypoint.sh`](./docker-entrypoint.sh), [`.dockerignore`](./.dockerignore):
+  the Docker image; [`fly.toml`](./fly.toml): the Fly.io configuration (see [Deployment](#deployment)).
+- [`.github/workflows/ci.yml`](./.github/workflows/ci.yml): CI (see [CI](#ci)).
 
 ---
 
@@ -190,6 +198,7 @@ The second call returns the app's `inviteToken`.
 | `PORT` | `8080` | HTTP port |
 | `DATABASE_PATH` | `data/gplaypromocodeprovider.db` | SQLite file, created with its directory if missing |
 | `COOKIE_SECURE` | `true` | Send the session cookie over HTTPS only. Set to `false` for local development over plain HTTP. |
+| `WEB_DIR` | *(none)* | Directory of the compiled web app to serve (the Docker image sets it). Without it the server only answers `/api`; in development the web app comes from the dev server. |
 
 ## Running tests
 
@@ -207,9 +216,217 @@ prepared automatically by a SessionStart hook, see [CLAUDE.md](./CLAUDE.md#cloud
 
 ## Deployment
 
-*Coming soon.* The plan is a single Docker image containing the Ktor server and the compiled web app,
-plus a step-by-step guide for deploying it to Fly.io (including a persistent volume for the SQLite
-database and setting the admin credentials as secrets).
+The whole platform ships as **one Docker image**: the Ktor server, which also serves the compiled web app. It runs
+anywhere Docker runs; this guide deploys it to [Fly.io](https://fly.io).
+
+### What's in the image
+
+A Docker image is a packaged file system plus a start command. A container is a running instance of it. The
+[`Dockerfile`](./Dockerfile) builds the image in two stages:
+
+1. **Build stage** (`eclipse-temurin:21-jdk-noble`: Ubuntu with a JDK). Copies the sources and runs
+   `./gradlew :server:installDist :webApp:composeCompatibilityBrowserDistribution`, which compiles the server
+   (with its libraries and a start script) and the web app (Wasm, plus the JS build as fallback for browsers
+   without the Wasm features it needs; a small loader picks one). Gradle downloads Node.js for the web build by itself.
+   This stage is thrown away; it only provides the compiled files.
+2. **Runtime stage** (`eclipse-temurin:21-jre-noble`: Ubuntu with only a Java runtime). Contains:
+   - `/app/bin/server` and `/app/lib/*.jar`: the server,
+   - `/app/web`: the web app's files (`index.html`, scripts, Wasm),
+   - `/data`: the directory for the SQLite file, meant to be a **volume** (see below),
+   - `sqlite3`, the SQLite command line tool, only for backups,
+   - [`docker-entrypoint.sh`](./docker-entrypoint.sh): the start script. The server runs as the unprivileged user
+     `app`, not as root. A volume can be mounted owned by root (Fly.io does that), so the script starts as root,
+     hands `/data` to `app`, and then starts the server as `app`.
+
+The tests are not run in the image build; CI runs them (see [CI](#ci)). `.dockerignore` keeps local build outputs
+and databases out of the build.
+
+**Volumes**: everything a container writes is lost when it's replaced by a new one, e.g. on every deployment. A
+volume is storage that lives outside the container and is mounted into it at `/data`, so the database survives.
+
+**Configuration** comes from environment variables (table in [Running the app](#running-the-app)). The image sets
+`PORT=8080`, `DATABASE_PATH=/data/gplaypromocodeprovider.db` and `WEB_DIR=/app/web`; `ADMIN_USERNAME` and
+`ADMIN_PASSWORD` are passed at start. `JAVA_OPTS` holds the JVM options (heap: 60% of the container's memory).
+
+### Serving the web app
+
+With `WEB_DIR` set, the server answers every path outside `/api` from that directory. Paths without a file
+(`/invite/<token>`, `/admin/apps/1`) get `index.html`, so links and page reloads work. Unknown `/api` paths get the
+API's JSON `404`. `index.html` has `<base href="/">`: the production build's loader and webpack chunks load further
+files with relative URLs, which on `/invite/<token>` would otherwise point to `/invite/originWasmWebApp.js` and get
+`index.html` instead of the script. The files are sent gzip-compressed (API responses are not: they contain secrets, and compressing
+secrets together with attacker-controlled data can leak them, see BREACH) with `Cache-Control: no-cache`, so a
+browser always asks whether its copy is still current (`304 Not Modified` if so) and picks up a new release right
+away. `GET /api/health` answers `ok`, for Fly.io's health check.
+
+### Running the image locally
+
+Needs [Docker](https://docs.docker.com/get-started/get-docker/). The first build takes several minutes.
+
+```bash
+docker build -t gplay-promo-codes .
+```
+
+```bash
+docker run --rm -p 8080:8080 -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD=secret -e COOKIE_SECURE=false -v gplay-data:/data gplay-promo-codes
+```
+
+- `-p 8080:8080` makes port 8080 of the container reachable as <http://localhost:8080> (admin UI: `/admin`).
+- `-e` sets environment variables. `COOKIE_SECURE=false` because this is plain HTTP.
+- `-v gplay-data:/data` mounts a named volume `gplay-data`, so the data is still there after `docker run` again.
+  `docker volume rm gplay-data` deletes it.
+- `--rm` removes the container (not the volume) when it stops; stop it with Ctrl+C.
+
+### Deploying to Fly.io
+
+Fly.io runs Docker images on small virtual machines ("Machines") close to the users. Its proxy accepts HTTPS
+(certificates included) and forwards the requests to the server's port 8080. The app is configured in
+[`fly.toml`](./fly.toml):
+
+| Setting | Meaning |
+|---------|---------|
+| `app`, `primary_region` | The app's unique name (address `https://<app>.fly.dev`) and where it runs (`fra`, Frankfurt) |
+| `[build]` | Build from the `Dockerfile`; Fly.io builds it on its own builders, no local Docker needed |
+| `[env]` | Non-secret environment variables |
+| `[mounts]` | The volume `data`, mounted at `/data` |
+| `[http_service]` | HTTPS forwarding to port 8080, HTTP redirected to HTTPS, health check on `/api/health`, machine stopped when idle and started on the next request |
+| `[[vm]]` | Machine size: 1 shared CPU, 512 MB memory |
+
+The app runs on **exactly one machine**: a Fly volume belongs to a single machine, and SQLite is a file, not a
+database server several machines could share. Pricing changes; see [fly.io/pricing](https://fly.io/pricing) (a
+512 MB machine that is stopped when idle, plus a 1 GB volume, costs a few dollars a month at most).
+
+One-time setup:
+
+1. Install [flyctl](https://fly.io/docs/flyctl/install/) and log in (creates an account if needed; Fly.io asks for a
+   credit card):
+
+   ```bash
+   fly auth login
+   ```
+
+2. Pick a unique app name, put it into `fly.toml` (`app = "..."`), and create the app:
+
+   ```bash
+   fly apps create gplay-promo-codes
+   ```
+
+3. Create the volume for the SQLite file in the same region as in `fly.toml`. 1 GB is plenty (a million codes are a
+   few dozen MB); it can be extended later with `fly volumes extend`, never shrunk.
+
+   ```bash
+   fly volumes create data --region fra --size 1
+   ```
+
+   Fly.io warns that a single volume has no redundancy: if the server's disk fails, the data since the last
+   snapshot is lost. That is accepted here; see [Backups](#backups).
+
+4. Set the admin credentials as **secrets**. Fly.io stores them encrypted and passes them to the server as
+   environment variables; they never appear in `fly.toml` or the repository. Use a long random password.
+
+   ```bash
+   fly secrets set ADMIN_USERNAME=admin ADMIN_PASSWORD='<a long random password>'
+   ```
+
+5. Deploy. `--ha=false` makes sure Fly.io creates one machine, not two (its default for high availability):
+
+   ```bash
+   fly deploy --ha=false
+   ```
+
+   Fly.io builds the image, starts a machine with the volume, waits for the health check, and assigns the
+   addresses. The app is now at `https://<app>.fly.dev`; the admin UI at `https://<app>.fly.dev/admin`.
+
+Updating: run `fly deploy` again (or let CI do it, see [below](#deploying-from-ci)). The machine is replaced by one
+with the new image; the volume, and so the data, stays. A deployment logs the admin out (sessions are kept in
+memory). Useful commands: `fly status` (machine state), `fly logs` (server output), `fly secrets list` (names only),
+`fly ssh console` (a shell in the running machine).
+
+**Idle machine**: with `auto_stop_machines = "stop"`, the machine stops after a few minutes without requests and
+starts again on the next one, which then takes a few seconds. That also logs the admin out. To keep it running,
+set `auto_stop_machines = "off"` and `min_machines_running = 1` in `fly.toml`.
+
+### Custom domain and HTTPS
+
+`https://<app>.fly.dev` has HTTPS out of the box. For an own domain, e.g. `codes.example.com`:
+
+1. Tell Fly.io about it; it then requests a certificate from Let's Encrypt and renews it automatically:
+
+   ```bash
+   fly certs add codes.example.com
+   ```
+
+2. At the domain's DNS provider, add the records that `fly certs add` prints. For a subdomain that is a `CNAME`
+   record `codes` → `<app>.fly.dev`; for a domain without subdomain (`example.com`) an `A` and an `AAAA` record with
+   the addresses from `fly ips list`.
+3. Check the state with `fly certs show codes.example.com`; it usually takes a few minutes.
+
+Invite links are built from the address the admin UI is opened with, so open the admin UI with the custom domain
+before copying links.
+
+### Backups
+
+The database is one file, `/data/gplaypromocodeprovider.db`, on the volume. It contains all codes and invite
+tokens, so treat every copy as a secret.
+
+- **Snapshots**: Fly.io takes a snapshot of every volume daily and keeps it for 5 days by default.
+  `fly volumes list` shows the volume's id, `fly volumes snapshots list <volume id>` its snapshots. To restore one,
+  create a new volume from it (`fly volumes create data --snapshot-id <snapshot id> --region fra`), then destroy the
+  old volume (`fly volumes destroy <old volume id>`) and run `fly deploy` again.
+- **Own copies** (recommended before risky changes and regularly): make a consistent copy with `sqlite3`'s
+  `.backup` (copying the file itself while the server runs can miss recent changes, which are in the
+  `-wal` file next to it), download it, and delete it on the server:
+
+  ```bash
+  fly ssh console -C "sqlite3 /data/gplaypromocodeprovider.db '.backup /data/backup.db'"
+  ```
+
+  ```bash
+  fly ssh sftp get /data/backup.db ./gplay-backup.db
+  ```
+
+  ```bash
+  fly ssh console -C "rm /data/backup.db"
+  ```
+
+  If the machine is stopped (idle), open the app's address first or run `fly machine start`.
+- **Restoring an own copy**: upload it (`fly ssh sftp shell`, then `put gplay-backup.db /data/restore.db`), copy it
+  into the database, and restart the server:
+
+  ```bash
+  fly ssh console -C "sqlite3 /data/gplaypromocodeprovider.db '.restore /data/restore.db'"
+  ```
+
+  ```bash
+  fly apps restart
+  ```
+
+  Then delete `/data/restore.db` like the backup above.
+
+## CI
+
+[GitHub Actions](https://docs.github.com/actions) runs [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) on
+every pull request and every push to `main`:
+
+- **Build and test**: all test tasks (`:shared:jsTest :shared:wasmJsTest :shared:jvmTest :api:jvmTest :server:test`)
+  with Java 21 and the runner's Chrome. A failing test fails the run; the test reports are then attached to it.
+- **Build Docker image**: builds the image (without pushing it), so a broken `Dockerfile` shows up in the pull
+  request and not only when deploying.
+- **Deploy to Fly.io** (optional, off by default): after both jobs passed on `main`, runs `flyctl deploy`.
+
+### Deploying from CI
+
+1. Create a deploy token, which can only deploy this app:
+
+   ```bash
+   fly tokens create deploy --expiry 8760h
+   ```
+
+2. In the GitHub repository, under *Settings → Secrets and variables → Actions*: add the token as the **secret**
+   `FLY_API_TOKEN`, and add the **variable** `FLY_DEPLOY` with the value `true`.
+
+From then on every merge to `main` is deployed. The token expires after a year (`8760h`); create a new one then.
+Remove the variable (or set it to anything else) to stop deploying from CI.
 
 ---
 
@@ -224,16 +441,18 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 5. ✅ [#4](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/4) Shared API models, API client in the web app
 6. ✅ [#5](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/5) User UI: invite link page, batch list, request a code, copy and redeem
 7. ✅ [#6](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/6) Admin UI: login, manage apps and invite links, upload batches, statistics
-8. [#7](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/7) Packaging as a Docker image and deployment to Fly.io, plus CI
+8. ✅ [#7](https://github.com/TechbeeAT/GPlayPromoCodeProvider/issues/7) Packaging as a Docker image and deployment to Fly.io, plus CI
 
 ### Follow-ups and open points
 
-- **Step #7**: serve the compiled web app from the server. Unknown non-`/api` paths (e.g. `/invite/<token>`) must
-  get `index.html` (SPA fallback, like the dev server's `historyApiFallback`); `index.html` loads its scripts with
-  absolute paths for this reason. Behind Fly.io's proxy, TLS ends at the
-  proxy, so Ktor needs `XForwardedHeaders` to see `https` (otherwise it refuses to send the `Secure`
-  session cookie).
-- **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing.
+- **Not tested yet**: the Fly.io deployment itself (step #7 was built and tested locally with Docker, without a Fly.io
+  account). The first real deployment should follow [the guide](#deploying-to-flyio) and fix whatever doesn't match.
+- **Suggestion**: admin sessions are kept in memory, so a deployment and every idle stop of the Fly.io machine log the
+  admin out. Storing sessions in SQLite (Ktor `SessionStorage`) would keep them, if this becomes annoying.
+- **Decision**: the image keeps and serves the web app's source maps (`*.map`, about 11 MB, ~2% of the image). Users
+  don't download them (only the browser's developer tools do), and they make errors in the JS fallback readable.
+  `RUN find /app/web -name '*.map' -delete` in the runtime stage would drop them, e.g. if the repository becomes private.
+- **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing, keyed by Fly.io's `Fly-Client-IP` (`X-Forwarded-For` can be faked).
   The invite endpoints could be rate-limited too.
 - **Accepted for now** (decided after step #5, no action planned):
   - Received codes are lost when the user reloads or closes the invite page (the page says so). Keeping them in
