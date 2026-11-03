@@ -162,7 +162,7 @@ class AppDetailViewModel(
         viewModelScope.launch {
             when (val result = api.uploadBatch(appId, request)) {
                 is ApiResult.Success -> {
-                    _state.update { it.copy(upload = UploadFormState(result = result.value)) }
+                    _state.update { it.copy(upload = BatchUploadFormState(result = result.value)) }
                     load(showLoading = false) // New statistics for the app and the new batch in the list.
                 }
                 else -> {
@@ -174,7 +174,7 @@ class AppDetailViewModel(
     }
 
     /** Changes the form while no upload is running (the fields are disabled meanwhile anyway). */
-    private fun updateForm(change: (UploadFormState) -> UploadFormState) = _state.update {
+    private fun updateForm(change: (BatchUploadFormState) -> BatchUploadFormState) = _state.update {
         if (it.upload.uploading) it else it.copy(upload = change(it.upload))
     }
 

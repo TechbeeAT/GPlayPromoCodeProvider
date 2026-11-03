@@ -5,7 +5,7 @@ import at.techbee.gplaypromocodeprovider.admin.appdetails.AppDetailUiState
 import at.techbee.gplaypromocodeprovider.admin.appdetails.AppDetailViewModel
 import at.techbee.gplaypromocodeprovider.admin.appdetails.InvalidateDialogState
 import at.techbee.gplaypromocodeprovider.admin.appdetails.RegenerateDialogState
-import at.techbee.gplaypromocodeprovider.admin.appdetails.UploadFormState
+import at.techbee.gplaypromocodeprovider.admin.appdetails.BatchUploadFormState
 import at.techbee.gplaypromocodeprovider.admin.appdetails.countCodes
 import at.techbee.gplaypromocodeprovider.api.AppRequest
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -260,7 +260,7 @@ class AppDetailViewModelTest {
         assertEquals(2, state.upload.result!!.addedCount)
         assertEquals(listOf("OLD", "BBB"), state.upload.result.duplicates)
         // The form is cleared, the statistics and the batch list are reloaded.
-        assertEquals(UploadFormState(result = state.upload.result), state.upload)
+        assertEquals(BatchUploadFormState(result = state.upload.result), state.upload)
         val loaded = state.content as AppDetailContent.Loaded
         assertEquals(4, loaded.app.stats.available)
         assertEquals(listOf(6L, 5L), loaded.batches.map { it.id })
@@ -363,7 +363,7 @@ class AppDetailViewModelTest {
         vm.setCodes("A")
 
         assertEquals(1, vm.state.value.upload.codeCount)
-        assertEquals(2, UploadFormState(codes = "A\nB").codeCount)
+        assertEquals(2, BatchUploadFormState(codes = "A\nB").codeCount)
     }
 
     @Test

@@ -17,7 +17,7 @@ data class AppDetailUiState(
     val regenerateDialog: RegenerateDialogState? = null,
     /** The confirmation for invalidating a batch; `null` while it is closed. */
     val invalidateDialog: InvalidateDialogState? = null,
-    val upload: UploadFormState = UploadFormState(),
+    val upload: BatchUploadFormState = BatchUploadFormState(),
 )
 
 sealed interface AppDetailContent {
@@ -38,7 +38,7 @@ data class RegenerateDialogState(val running: Boolean = false, val error: Action
 data class InvalidateDialogState(val batch: AdminBatch, val running: Boolean = false, val error: ActionError? = null)
 
 /** The batch upload form. Kept in the view model, so it survives a login in between. */
-data class UploadFormState(
+data class BatchUploadFormState(
     val description: String = "",
     /** The picked expiration day as the date picker returns it (midnight UTC of that day), or `null`. */
     val expiryDateMillis: Long? = null,
