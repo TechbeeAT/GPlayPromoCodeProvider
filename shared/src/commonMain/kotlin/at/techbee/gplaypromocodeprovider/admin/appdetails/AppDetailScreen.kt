@@ -1,4 +1,4 @@
-package at.techbee.gplaypromocodeprovider.admin.app
+package at.techbee.gplaypromocodeprovider.admin.appdetails
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,11 +19,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
-import at.techbee.gplaypromocodeprovider.admin.app.components.AdminBatchList
-import at.techbee.gplaypromocodeprovider.admin.app.components.AdminBatchUploadCard
-import at.techbee.gplaypromocodeprovider.admin.app.components.InviteLinkCard
-import at.techbee.gplaypromocodeprovider.admin.app.components.RegenerateLinkDialog
-import at.techbee.gplaypromocodeprovider.admin.app.components.inviteLink
+import at.techbee.gplaypromocodeprovider.admin.appdetails.components.AdminBatchList
+import at.techbee.gplaypromocodeprovider.admin.appdetails.components.AdminBatchUploadCard
+import at.techbee.gplaypromocodeprovider.admin.appdetails.components.InviteLinkCard
+import at.techbee.gplaypromocodeprovider.admin.appdetails.components.RegenerateLinkDialog
+import at.techbee.gplaypromocodeprovider.admin.appdetails.components.inviteLink
 import at.techbee.gplaypromocodeprovider.admin.components.AppDialogState
 import at.techbee.gplaypromocodeprovider.admin.components.AppFormDialog
 import at.techbee.gplaypromocodeprovider.admin.components.LoadFailedMessage

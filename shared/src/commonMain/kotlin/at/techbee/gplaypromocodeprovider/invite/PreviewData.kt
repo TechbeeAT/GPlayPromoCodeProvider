@@ -5,7 +5,7 @@ import kotlin.time.Instant
 
 /** Sample data for the `@Preview`s of the invite page and its components. Fixed dates, so previews don't change. */
 internal object PreviewData {
-    const val APP_NAME = "Jtx Board"
+    const val APP_NAME = "jtx Board"
 
     val expiry: Instant = Instant.parse("2027-01-31T22:59:00Z")
     private val earlierExpiry: Instant = Instant.parse("2026-12-31T22:59:00Z")

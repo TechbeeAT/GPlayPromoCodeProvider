@@ -1,11 +1,11 @@
 package at.techbee.gplaypromocodeprovider.admin
 
-import at.techbee.gplaypromocodeprovider.admin.app.AppDetailContent
-import at.techbee.gplaypromocodeprovider.admin.app.AppDetailUiState
-import at.techbee.gplaypromocodeprovider.admin.app.AppDetailViewModel
-import at.techbee.gplaypromocodeprovider.admin.app.RegenerateDialogState
-import at.techbee.gplaypromocodeprovider.admin.app.UploadFormState
-import at.techbee.gplaypromocodeprovider.admin.app.countCodes
+import at.techbee.gplaypromocodeprovider.admin.appdetails.AppDetailContent
+import at.techbee.gplaypromocodeprovider.admin.appdetails.AppDetailUiState
+import at.techbee.gplaypromocodeprovider.admin.appdetails.AppDetailViewModel
+import at.techbee.gplaypromocodeprovider.admin.appdetails.RegenerateDialogState
+import at.techbee.gplaypromocodeprovider.admin.appdetails.UploadFormState
+import at.techbee.gplaypromocodeprovider.admin.appdetails.countCodes
 import at.techbee.gplaypromocodeprovider.api.AppRequest
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.request.HttpRequestData

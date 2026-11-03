@@ -1,4 +1,4 @@
-package at.techbee.gplaypromocodeprovider.admin.app.components
+package at.techbee.gplaypromocodeprovider.admin.appdetails.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

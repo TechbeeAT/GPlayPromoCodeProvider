@@ -1,4 +1,4 @@
-package at.techbee.gplaypromocodeprovider.admin.app
+package at.techbee.gplaypromocodeprovider.admin.appdetails
 
 import at.techbee.gplaypromocodeprovider.admin.ActionError
 import at.techbee.gplaypromocodeprovider.admin.components.AppDialogState

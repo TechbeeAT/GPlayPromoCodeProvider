@@ -1,8 +1,8 @@
 package at.techbee.gplaypromocodeprovider.admin
 
-import at.techbee.gplaypromocodeprovider.admin.session.AdminSessionState
-import at.techbee.gplaypromocodeprovider.admin.session.AdminSessionViewModel
-import at.techbee.gplaypromocodeprovider.admin.session.LoginError
+import at.techbee.gplaypromocodeprovider.admin.login.AdminSessionState
+import at.techbee.gplaypromocodeprovider.admin.login.AdminSessionViewModel
+import at.techbee.gplaypromocodeprovider.admin.login.LoginError
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode

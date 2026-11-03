@@ -1,4 +1,4 @@
-package at.techbee.gplaypromocodeprovider.admin.session
+package at.techbee.gplaypromocodeprovider.admin.login
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

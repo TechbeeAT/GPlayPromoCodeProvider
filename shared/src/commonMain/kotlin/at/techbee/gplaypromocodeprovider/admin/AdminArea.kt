@@ -31,16 +31,16 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import at.techbee.gplaypromocodeprovider.Route
 import at.techbee.gplaypromocodeprovider.PreviewTheme
-import at.techbee.gplaypromocodeprovider.admin.app.AppDetailScreen
-import at.techbee.gplaypromocodeprovider.admin.app.AppDetailViewModel
-import at.techbee.gplaypromocodeprovider.admin.apps.AppListScreen
-import at.techbee.gplaypromocodeprovider.admin.apps.AppListViewModel
+import at.techbee.gplaypromocodeprovider.admin.appdetails.AppDetailScreen
+import at.techbee.gplaypromocodeprovider.admin.appdetails.AppDetailViewModel
+import at.techbee.gplaypromocodeprovider.admin.applist.AppListScreen
+import at.techbee.gplaypromocodeprovider.admin.applist.AppListViewModel
 import at.techbee.gplaypromocodeprovider.admin.components.ErrorText
 import at.techbee.gplaypromocodeprovider.admin.components.LoadFailedMessage
 import at.techbee.gplaypromocodeprovider.admin.components.LoadingBox
-import at.techbee.gplaypromocodeprovider.admin.session.AdminSessionState
-import at.techbee.gplaypromocodeprovider.admin.session.AdminSessionViewModel
-import at.techbee.gplaypromocodeprovider.admin.session.LoginScreen
+import at.techbee.gplaypromocodeprovider.admin.login.AdminSessionState
+import at.techbee.gplaypromocodeprovider.admin.login.AdminSessionViewModel
+import at.techbee.gplaypromocodeprovider.admin.login.LoginScreen
 import at.techbee.gplaypromocodeprovider.client.ApiClient
 
 /**

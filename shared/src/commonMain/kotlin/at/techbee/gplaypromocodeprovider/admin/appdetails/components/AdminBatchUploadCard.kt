@@ -1,4 +1,4 @@
-package at.techbee.gplaypromocodeprovider.admin.app.components
+package at.techbee.gplaypromocodeprovider.admin.appdetails.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,7 +34,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
-import at.techbee.gplaypromocodeprovider.admin.app.UploadFormState
+import at.techbee.gplaypromocodeprovider.admin.appdetails.UploadFormState
 import at.techbee.gplaypromocodeprovider.admin.components.ErrorText
 import at.techbee.gplaypromocodeprovider.admin.text
 import at.techbee.gplaypromocodeprovider.api.AdminBatch

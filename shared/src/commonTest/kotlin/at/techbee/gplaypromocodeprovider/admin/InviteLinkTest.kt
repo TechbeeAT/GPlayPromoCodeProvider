@@ -1,7 +1,7 @@
 package at.techbee.gplaypromocodeprovider.admin
 
 import at.techbee.gplaypromocodeprovider.Route
-import at.techbee.gplaypromocodeprovider.admin.app.components.inviteLink
+import at.techbee.gplaypromocodeprovider.admin.appdetails.components.inviteLink
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

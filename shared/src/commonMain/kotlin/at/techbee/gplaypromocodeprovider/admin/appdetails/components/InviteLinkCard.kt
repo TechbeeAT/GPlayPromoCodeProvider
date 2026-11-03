@@ -1,4 +1,4 @@
-package at.techbee.gplaypromocodeprovider.admin.app.components
+package at.techbee.gplaypromocodeprovider.admin.appdetails.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,7 +18,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import at.techbee.gplaypromocodeprovider.PreviewTheme
 import at.techbee.gplaypromocodeprovider.admin.ActionError
-import at.techbee.gplaypromocodeprovider.admin.app.RegenerateDialogState
+import at.techbee.gplaypromocodeprovider.admin.appdetails.RegenerateDialogState
 import at.techbee.gplaypromocodeprovider.admin.components.CopyButton
 import at.techbee.gplaypromocodeprovider.admin.components.ErrorText
 import at.techbee.gplaypromocodeprovider.admin.text

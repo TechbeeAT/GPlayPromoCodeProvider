@@ -1,4 +1,4 @@
-package at.techbee.gplaypromocodeprovider.admin.session
+package at.techbee.gplaypromocodeprovider.admin.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

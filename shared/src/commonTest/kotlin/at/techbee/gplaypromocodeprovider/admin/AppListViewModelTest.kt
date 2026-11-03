@@ -1,8 +1,8 @@
 package at.techbee.gplaypromocodeprovider.admin
 
-import at.techbee.gplaypromocodeprovider.admin.apps.AppListContent
-import at.techbee.gplaypromocodeprovider.admin.apps.AppListUiState
-import at.techbee.gplaypromocodeprovider.admin.apps.AppListViewModel
+import at.techbee.gplaypromocodeprovider.admin.applist.AppListContent
+import at.techbee.gplaypromocodeprovider.admin.applist.AppListUiState
+import at.techbee.gplaypromocodeprovider.admin.applist.AppListViewModel
 import at.techbee.gplaypromocodeprovider.admin.components.AppDialogState
 import at.techbee.gplaypromocodeprovider.api.AppRequest
 import io.ktor.http.HttpMethod

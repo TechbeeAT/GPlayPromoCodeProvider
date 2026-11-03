@@ -1,4 +1,4 @@
-package at.techbee.gplaypromocodeprovider.admin.app
+package at.techbee.gplaypromocodeprovider.admin.appdetails
 
 import androidx.lifecycle.viewModelScope
 import at.techbee.gplaypromocodeprovider.admin.ActionError
