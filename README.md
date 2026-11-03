@@ -69,6 +69,7 @@ AVAILABLE ──(user requests code)──▶ CONSUMED
 | Expiry | A batch's `expiresAt` is an exact instant (UTC). From that instant on, its remaining codes count as expired. The admin UI will turn a picked date into an instant. |
 | API client | `ApiClient` in `shared` (package `client`), on the Ktor client with the browser's `fetch` for JS and Wasm. Every call returns an `ApiResult` (`Success`, `Failure` with status and `ApiError`, `NetworkError`) instead of throwing, so the UI has to handle each case. JSON is parsed leniently (`ignoreUnknownKeys`, `coerceInputValues`), so an older web app keeps working against a newer server. Path segments are encoded including `/`, so an invite token can't change the request path. |
 | Invite page | The web app picks its screen from the URL path (`/invite/<token>`; anything else shows a short home page). There is no in-app navigation, so a deep link and a page reload behave the same. The page lists the app's batches, hands out a code per "Get code" tap, and shows the code with "Copy code" and "Redeem on Google Play". The codes received on the page stay listed (newest first, also if the link stops working meanwhile), but only until the page is closed or reloaded. After every request the batch list is refreshed, so a batch that just ran out disappears. |
+| Compose previews | `shared` has a `jvm` target only so the IDE can render `@Preview`s (and the tests also run fast on the JVM). There is no desktop app. Browser-only code (date formatting, clipboard entry) is `expect`/`actual` with a JVM version in `jvmMain`. |
 | Codes left per batch | Not shown to users. The invite API sends no counts, so a link holder learns nothing about volumes. |
 | Dates in the user UI | Shown in the browser's time zone as English date and 24-hour time ("31 Jan 2027, 23:59"), formatted by the browser (`Intl`), so daylight saving time is right. |
 | Upload rules | Codes are unique per app (the same code may exist in two different apps). Duplicates, against existing codes of the app or within the upload, are skipped and returned to the admin. An upload with no new code, an expiry date in the past, or a code longer than 128 characters is rejected. At most 10,000 codes per upload. |
@@ -134,6 +135,7 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
   - [`commonMain`](./shared/src/commonMain/kotlin): code common to all targets: the app shell (`App.kt`,
     picks the screen by `Route`), the API client (`client`) and the invite page (`invite`: screen, view model, UI state).
   - [`webMain`](./shared/src/webMain/kotlin): code for the browser targets (JS and Wasm) only, e.g. date formatting with `Intl`.
+  - [`jvmMain`](./shared/src/jvmMain/kotlin): the JVM versions of that code, for the IDE's Compose previews.
   - [`commonTest`](./shared/src/commonTest/kotlin): tests, run in a headless browser for both JS and Wasm.
     The API client is tested against Ktor's `MockEngine`.
 - [`/webApp`](./webApp/src): the web entry point (`main.kt`, `index.html`, styles). `webpack.config.d` configures
@@ -181,6 +183,7 @@ The second call returns the app's `inviteToken`.
 
 - Wasm target: `./gradlew :shared:wasmJsTest`
 - JS target: `./gradlew :shared:jsTest`
+- JVM: `./gradlew :shared:jvmTest` (the same tests, fast and without a browser)
 - API models: `./gradlew :api:jvmTest`
 - Server: `./gradlew :server:test` (JVM, no browser needed; uses temporary SQLite files)
 
@@ -226,10 +229,6 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 - **Note**: Compose draws onto a canvas, so the page has no DOM text. The UI was tested end to end with Playwright
   screenshots and clicks at coordinates; the view model is unit tested. Accessibility (screen readers) of Compose for
   Web is worth a look before a public launch.
-- **Open question**: the composables have `@Preview`s (one per state of the invite page), but IntelliJ IDEA and
-  Android Studio render Compose previews only through a JVM (desktop) or Android target. `shared` has only `js` and
-  `wasmJs`, so the previews may not render in the IDE. Adding a `jvm()` target to `shared` just for previews would
-  need JVM versions of the browser-only code (date formatting) and a JVM Ktor engine.
 - **Suggestion**: deleting apps and batches is not part of the API yet.
 - **Decision**: `server/.../db/Tables.kt` mirrors the SQL in `Migrations.kt` by hand; nothing checks
   that they match (the tests only catch mismatches in columns they use). Fine at three tables and with

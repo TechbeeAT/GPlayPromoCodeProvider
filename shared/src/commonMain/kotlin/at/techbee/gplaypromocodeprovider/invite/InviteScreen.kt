@@ -29,9 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
@@ -190,7 +188,6 @@ private fun BatchList(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
     val clipboard = LocalClipboard.current
@@ -233,7 +230,7 @@ private fun CodeCard(code: ReceivedCode, prominent: Boolean = true) {
                 OutlinedButton(onClick = {
                     scope.launch {
                         copyResult = try {
-                            clipboard.setClipEntry(ClipEntry.withPlainText(code.code))
+                            clipboard.setClipEntry(plainTextClipEntry(code.code))
                             true
                         } catch (e: CancellationException) {
                             throw e

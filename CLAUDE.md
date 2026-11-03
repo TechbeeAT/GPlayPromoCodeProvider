@@ -40,7 +40,7 @@ deciding them.
 | Module | Purpose |
 |--------|---------|
 | `api` | `@Serializable` DTOs of the REST API, shared by server and web app. Only depends on kotlinx.serialization (no Compose). Targets: `jvm`, `js`, `wasmJs`. |
-| `shared` | Compose UI, view models and the API client (`client.ApiClient`, Ktor client). Depends on `api`. Targets: `js`, `wasmJs`. `App` picks the screen from the URL path (`Route`); one package per screen (`invite`). Browser-only code (e.g. `js()` interop) goes into `webMain`. |
+| `shared` | Compose UI, view models and the API client (`client.ApiClient`, Ktor client). Depends on `api`. Targets: `js`, `wasmJs`, plus `jvm` only for the IDE's Compose previews and fast tests (there is no desktop app). `App` picks the screen from the URL path (`Route`); one package per screen (`invite`). Browser-only code (e.g. `js()` interop) goes into `webMain`, with a JVM `actual` in `jvmMain` (`expect`/`actual`). |
 | `webApp` | Web entry point (`main.kt` → `ComposeViewport { App(path, origin) }`), `index.html`, CSS, dev server config (`webpack.config.d`: port 8081, `/api` proxy, `index.html` for every path). |
 | `server` | Ktor REST API (Kotlin/JVM), SQLite persistence via Exposed, admin authentication. Will also serve the web app (step #7). |
 
@@ -51,6 +51,7 @@ deciding them.
 ./gradlew :webApp:jsBrowserDevelopmentRun       # run the web app (JS) on :8081, /api proxied to :8080
 ./gradlew :shared:wasmJsTest                    # tests (Wasm)
 ./gradlew :shared:jsTest                        # tests (JS)
+./gradlew :shared:jvmTest                       # same tests on the JVM (fast, no browser)
 ./gradlew :api:jvmTest                          # API model tests (JVM)
 ./gradlew :server:test                          # server tests (JVM)
 ADMIN_USERNAME=admin ADMIN_PASSWORD=secret COOKIE_SECURE=false ./gradlew :server:run   # run the server on :8080
@@ -81,7 +82,7 @@ session starts once it is done. The steps:
 3. **Headless Chrome**: points `CHROME_BIN` (also exported for the session through
    `CLAUDE_ENV_FILE`) to a wrapper around the image's Playwright Chromium that adds `--no-sandbox`,
    because sessions run as root.
-4. **Gradle warm-up**: runs `./gradlew :shared:jsTest :shared:wasmJsTest :api:jvmTest :server:test`. This downloads the Gradle
+4. **Gradle warm-up**: runs `./gradlew :shared:jsTest :shared:wasmJsTest :shared:jvmTest :api:jvmTest :server:test`. This downloads the Gradle
    distribution, Maven and npm dependencies, Node.js and Yarn, compiles and runs the tests. Maven
    Central often answers `429 Too Many Requests` to a fresh container, so network errors are retried
    (up to 6 attempts); other failures, such as a failing test, are not.
@@ -93,7 +94,7 @@ To verify it, run it by hand in a cloud session and then run the tests:
 
 ```bash
 CLAUDE_CODE_REMOTE=true .claude/hooks/session-start.sh
-./gradlew :shared:jsTest :shared:wasmJsTest :api:jvmTest :server:test
+./gradlew :shared:jsTest :shared:wasmJsTest :shared:jvmTest :api:jvmTest :server:test
 ```
 
 When a new module or test task is added, add it to the warm-up in the hook.
@@ -126,6 +127,7 @@ When a new module or test task is added, add it to the warm-up in the hook.
 - Never install Ktor's `CallLogging` or log request paths: they contain invite tokens. The
   `Exposed` logger is off because it logs statement values (codes). Don't log exception messages of
   `SQLException`s.
+- Give every screen state a `@Preview` (sample data, no server). Previews render through the `jvm` target.
 - Write tests along with new logic. Code allocation and expiry handling in particular need tests,
   including a concurrency test for rule 1.
 - Use `kotlinx-datetime` / `kotlin.time.Instant` for timestamps and store them in UTC.
