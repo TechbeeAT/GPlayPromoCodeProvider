@@ -13,7 +13,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.http.withoutParameters
 import java.io.File
 import java.nio.file.Files
 import kotlin.test.Test
@@ -56,7 +55,7 @@ class WebAppRoutesTest {
     fun servesFilesWithTheirContentType() = webTest {
         val script = client.get("/webApp.js")
         assertEquals("console.log('app')", script.bodyAsText())
-        assertEquals(ContentType.Application.JavaScript, script.contentType()?.withoutParameters())
+        assertEquals(ContentType.Text.JavaScript, script.contentType()?.withoutParameters())
 
         // Browsers only compile Wasm while downloading it (instantiateStreaming) with this type.
         val wasm = client.get("/app.wasm")
