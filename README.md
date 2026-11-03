@@ -445,7 +445,13 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 
 ### Follow-ups and open points
 
-- **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing.
+- **Not tested yet**: the Fly.io deployment itself (step #7 was built and tested locally with Docker, without a Fly.io
+  account). The first real deployment should follow [the guide](#deploying-to-flyio) and fix whatever doesn't match.
+- **Suggestion**: admin sessions are kept in memory, so a deployment and every idle stop of the Fly.io machine log the
+  admin out. Storing sessions in SQLite (Ktor `SessionStorage`) would keep them, if this becomes annoying.
+- **Note**: the image contains and serves the web app's source maps (`*.map`, about 11 MB). Harmless for an open
+  project; deleting them in the Dockerfile would make the image smaller.
+- **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing, keyed by Fly.io's `Fly-Client-IP` (`X-Forwarded-For` can be faked).
   The invite endpoints could be rate-limited too.
 - **Accepted for now** (decided after step #5, no action planned):
   - Received codes are lost when the user reloads or closes the invite page (the page says so). Keeping them in
