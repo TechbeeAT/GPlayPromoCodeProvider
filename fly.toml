@@ -1,15 +1,16 @@
 # Fly.io configuration, used by `fly deploy`. See README.md ("Deployment") for the step-by-step guide.
 # Reference: https://fly.io/docs/reference/configuration/
 
-# The app's name on Fly.io, also its default address: https://<app>.fly.dev. It must be unique on
-# Fly.io; change it (or let `fly launch` change it) before the first deployment.
-app = "gplay-promo-codes"
+# The app's name on Fly.io, also its default address: https://<app>.fly.dev. It is unique on
+# Fly.io; a fork deploying its own instance changes it.
+app = "gplaypromocodeprovider"
 
 # Where the machine and its volume run. "fra" is Frankfurt; `fly platform regions` lists the others.
 primary_region = "fra"
 
-# Build the image from the Dockerfile in this directory (on Fly.io's builders, so no local Docker is
-# needed).
+# Build the image from the Dockerfile in this directory. CI builds it on a GitHub runner and deploys
+# it with `flyctl deploy --image ...` (.github/workflows/ci.yml): Fly.io's own remote builders run out
+# of memory compiling the web app.
 [build]
   dockerfile = "Dockerfile"
 

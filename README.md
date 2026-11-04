@@ -291,8 +291,8 @@ Fly.io runs Docker images on small virtual machines ("Machines") close to the us
 
 | Setting | Meaning |
 |---------|---------|
-| `app`, `primary_region` | The app's unique name (address `https://<app>.fly.dev`) and where it runs (`fra`, Frankfurt) |
-| `[build]` | Build from the `Dockerfile`; Fly.io builds it on its own builders, no local Docker needed |
+| `app`, `primary_region` | The app's unique name (`gplaypromocodeprovider`, address `https://<app>.fly.dev`) and where it runs (`fra`, Frankfurt) |
+| `[build]` | Build from the `Dockerfile` |
 | `[env]` | Non-secret environment variables |
 | `[mounts]` | The volume `data`, mounted at `/data` |
 | `[http_service]` | HTTPS forwarding to port 8080, HTTP redirected to HTTPS, health check on `/api/health`, machine stopped when idle and started on the next request |
@@ -301,6 +301,13 @@ Fly.io runs Docker images on small virtual machines ("Machines") close to the us
 The app runs on **exactly one machine**: a Fly volume belongs to a single machine, and SQLite is a file, not a
 database server several machines could share. Pricing changes; see [fly.io/pricing](https://fly.io/pricing) (a
 512 MB machine that is stopped when idle, plus a 1 GB volume, costs a few dollars a month at most).
+
+**Where the image is built**: not on Fly.io. `fly deploy` normally sends the sources to one of Fly.io's remote
+builders, but compiling the web app (Kotlin/JS and Wasm production builds) needs more memory than they have: the
+build gets killed ("Gradle build daemon disappeared unexpectedly"). So the image is built with Docker elsewhere,
+by CI on a GitHub runner (16 GB) or on your computer, pushed to Fly.io's image registry (`registry.fly.io`), and
+deployed from there with `fly deploy --image`. For the same reason, don't use Fly.io's "deploy from GitHub"
+integration in its dashboard (it builds on Fly.io's builders): CI deploys instead.
 
 One-time setup:
 
@@ -311,10 +318,10 @@ One-time setup:
    fly auth login
    ```
 
-2. Pick a unique app name, put it into `fly.toml` (`app = "..."`), and create the app:
+2. Create the app (or in the Fly.io dashboard). The name must be unique on Fly.io and match `app` in `fly.toml`:
 
    ```bash
-   fly apps create gplay-promo-codes
+   fly apps create gplaypromocodeprovider
    ```
 
 3. Create the volume for the SQLite file in the same region as in `fly.toml`. 1 GB is plenty (a million codes are a
@@ -334,16 +341,36 @@ One-time setup:
    fly secrets set ADMIN_USERNAME=admin ADMIN_PASSWORD='<a long random password>'
    ```
 
-5. Deploy. `--ha=false` makes sure Fly.io creates one machine, not two (its default for high availability):
+5. Deploy, preferably from CI: set it up as in [Deploying from CI](#deploying-from-ci), then on GitHub open
+   *Actions → CI → Run workflow* on `main`. After the tests and the image build, the deploy job builds the image,
+   pushes it to Fly.io and deploys it. Alternatively deploy from your own computer, which needs Docker: log Docker
+   in to Fly.io's registry, build and push the image, and deploy it:
 
    ```bash
-   fly deploy --ha=false
+   fly auth docker
    ```
 
-   Fly.io builds the image, starts a machine with the volume, waits for the health check, and assigns the
-   addresses. The app is now at `https://<app>.fly.dev`; the admin UI at `https://<app>.fly.dev/admin`.
+   ```bash
+   docker build --platform linux/amd64 -t registry.fly.io/gplaypromocodeprovider:manual .
+   ```
 
-Updating: run `fly deploy` again (or let CI do it, see [below](#deploying-from-ci)). The machine is replaced by one
+   `--platform linux/amd64`: Fly.io machines are x86. On an Apple Silicon Mac, Docker would otherwise build an ARM
+   image, and emulating x86 makes the build much slower. Docker needs enough memory for the build (Docker Desktop:
+   *Settings → Resources*, 8 GB or more).
+
+   ```bash
+   docker push registry.fly.io/gplaypromocodeprovider:manual
+   ```
+
+   ```bash
+   fly deploy --image registry.fly.io/gplaypromocodeprovider:manual --ha=false
+   ```
+
+   `--ha=false` makes sure Fly.io creates one machine, not two (its default for high availability). Fly.io starts a
+   machine with the volume, waits for the health check, and assigns the addresses. The app is now at
+   `https://<app>.fly.dev`; the admin UI at `https://<app>.fly.dev/admin`.
+
+Updating: merge to `main` (CI deploys), or build, push and deploy yourself as above. The machine is replaced by one
 with the new image; the volume, and so the data, stays. A deployment logs the admin out (sessions are kept in
 memory). Useful commands: `fly status` (machine state), `fly logs` (server output), `fly secrets list` (names only),
 `fly ssh console` (a shell in the running machine).
@@ -418,7 +445,12 @@ every pull request and every push to `main`:
   with Java 21 and the runner's Chrome. A failing test fails the run; the test reports are then attached to it.
 - **Build Docker image**: builds the image (without pushing it), so a broken `Dockerfile` shows up in the pull
   request and not only when deploying.
-- **Deploy to Fly.io** (optional, off by default): after both jobs passed on `main`, runs `flyctl deploy`.
+- **Deploy to Fly.io** (optional, off by default): after both jobs passed on `main`, builds the image on the runner
+  (reusing the cached layers of the image build), pushes it to `registry.fly.io/gplaypromocodeprovider:<commit>` and
+  deploys it (`flyctl deploy --image ... --ha=false`).
+
+The workflow also has a *Run workflow* button (Actions tab, `workflow_dispatch`): it runs the same jobs for a branch
+without a new commit, and deploys when run on `main`.
 
 ### Deploying from CI
 
@@ -431,7 +463,8 @@ every pull request and every push to `main`:
 2. In the GitHub repository, under *Settings → Secrets and variables → Actions*: add the token as the **secret**
    `FLY_API_TOKEN`, and add the **variable** `FLY_DEPLOY` with the value `true`.
 
-From then on every merge to `main` is deployed. The token expires after a year (`8760h`); create a new one then.
+From then on every merge to `main` is deployed; *Actions → CI → Run workflow* on `main` deploys right away. The token
+expires after a year (`8760h`); create a new one then.
 Remove the variable (or set it to anything else) to stop deploying from CI.
 
 ---
