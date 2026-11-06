@@ -3,6 +3,7 @@ package at.techbee.gplaypromocodeprovider.server.domain
 import at.techbee.gplaypromocodeprovider.server.db.Apps
 import at.techbee.gplaypromocodeprovider.server.db.CodeBatches
 import at.techbee.gplaypromocodeprovider.server.db.PromoCodes
+import at.techbee.gplaypromocodeprovider.server.db.query
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -18,7 +19,6 @@ import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -35,7 +35,7 @@ class BatchRepository(private val db: Database, private val clock: Clock = Clock
      * the app, or repeat within the upload, are skipped and reported in [UploadResult.Created.duplicates].
      * Throws [ValidationException] for invalid input, including an upload without any new code.
      */
-    fun upload(appId: Long, description: String?, expiresAt: Instant, codesText: String): UploadResult {
+    suspend fun upload(appId: Long, description: String?, expiresAt: Instant, codesText: String): UploadResult {
         val now = clock.now()
         if (expiresAt <= now) throw ValidationException("The expiration date must be in the future")
         val batchDescription = description.trimToNull()?.checkLength("Description", MAX_DESCRIPTION_LENGTH)
@@ -48,8 +48,8 @@ class BatchRepository(private val db: Database, private val clock: Clock = Clock
         // The transaction holds SQLite's write lock from the start (BEGIN IMMEDIATE), so no
         // other upload can insert the same code between the check and the insert. The
         // UNIQUE (app_id, code) constraint is the last line of defence.
-        return transaction(db) {
-            if (Apps.select(Apps.id).where { Apps.id eq appId }.empty()) return@transaction UploadResult.AppNotFound
+        return db.query {
+            if (Apps.select(Apps.id).where { Apps.id eq appId }.empty()) return@query UploadResult.AppNotFound
 
             val existing = parsed.unique.chunked(500).flatMapTo(HashSet()) { chunk ->
                 PromoCodes.select(PromoCodes.code)
@@ -79,7 +79,7 @@ class BatchRepository(private val db: Database, private val clock: Clock = Clock
     }
 
     /** Batches of the app that are not expired or invalidated and still have available codes, soonest expiry first. */
-    fun listAvailable(appId: Long): List<Batch> = transaction(db) {
+    suspend fun listAvailable(appId: Long): List<Batch> = db.query {
         val now = clock.now().toEpochMilliseconds()
         val availableCode = PromoCodes.select(PromoCodes.id).where {
             (PromoCodes.batchId eq CodeBatches.id) and PromoCodes.consumedAt.isNull()
@@ -94,7 +94,7 @@ class BatchRepository(private val db: Database, private val clock: Clock = Clock
     }
 
     /** All batches of the app (or of all apps if [appId] is null) with their code statistics, newest first. */
-    fun listWithStats(appId: Long? = null): List<BatchWithStats> = transaction(db) {
+    suspend fun listWithStats(appId: Long? = null): List<BatchWithStats> = db.query {
         val now = clock.now()
         val batches = CodeBatches.selectAll()
             .apply { if (appId != null) where { CodeBatches.appId eq appId } }
@@ -123,7 +123,7 @@ class BatchRepository(private val db: Database, private val clock: Clock = Clock
      * nothing (the first time is kept). Returns the batch with its statistics, or `null` if the app
      * has no such batch.
      */
-    fun invalidate(appId: Long, batchId: Long): BatchWithStats? = transaction(db) {
+    suspend fun invalidate(appId: Long, batchId: Long): BatchWithStats? = db.query {
         val now = clock.now()
         val ofApp = (CodeBatches.id eq batchId) and (CodeBatches.appId eq appId)
         // Like a hand-out, this is a write transaction (BEGIN IMMEDIATE), so the two never interleave:
@@ -131,7 +131,7 @@ class BatchRepository(private val db: Database, private val clock: Clock = Clock
         CodeBatches.update({ ofApp and CodeBatches.invalidatedAt.isNull() }) {
             it[invalidatedAt] = now.toEpochMilliseconds()
         }
-        val batch = CodeBatches.selectAll().where(ofApp).singleOrNull()?.toBatch() ?: return@transaction null
+        val batch = CodeBatches.selectAll().where(ofApp).singleOrNull()?.toBatch() ?: return@query null
         val consumed = PromoCodes.select(PromoCodes.id)
             .where { (PromoCodes.batchId eq batchId) and PromoCodes.consumedAt.isNotNull() }.count().toInt()
         val remaining = PromoCodes.select(PromoCodes.id)

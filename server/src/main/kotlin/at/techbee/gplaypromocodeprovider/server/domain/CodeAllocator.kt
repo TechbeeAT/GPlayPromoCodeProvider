@@ -1,13 +1,13 @@
 package at.techbee.gplaypromocodeprovider.server.domain
 
 import at.techbee.gplaypromocodeprovider.server.db.CodeBatches
+import at.techbee.gplaypromocodeprovider.server.db.query
 import org.jetbrains.exposed.v1.core.LongColumnType
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.statements.StatementType
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.time.Clock
 
 sealed interface HandOutResult {
@@ -21,7 +21,7 @@ sealed interface HandOutResult {
 /** Hands out promo codes. Each code is handed out at most once (CLAUDE.md, domain rule 1). */
 class CodeAllocator(private val db: Database, private val clock: Clock = Clock.System) {
 
-    fun handOut(appId: Long, batchId: Long): HandOutResult = transaction(db) {
+    suspend fun handOut(appId: Long, batchId: Long): HandOutResult = db.query {
         val now = clock.now().toEpochMilliseconds()
         val long = LongColumnType()
         // Picks an available code of a valid, non-expired batch and marks it consumed in a single

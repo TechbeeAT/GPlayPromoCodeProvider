@@ -17,11 +17,14 @@ import at.techbee.gplaypromocodeprovider.server.domain.AppInput
 import at.techbee.gplaypromocodeprovider.server.domain.AppRepository
 import at.techbee.gplaypromocodeprovider.server.domain.BatchRepository
 import at.techbee.gplaypromocodeprovider.server.domain.BatchWithStats
+import at.techbee.gplaypromocodeprovider.server.domain.CodeParser
+import at.techbee.gplaypromocodeprovider.server.domain.MAX_CODES_PER_UPLOAD
 import at.techbee.gplaypromocodeprovider.server.domain.Stats
 import at.techbee.gplaypromocodeprovider.server.domain.UploadResult
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.principal
+import io.ktor.server.plugins.bodylimit.RequestBodyLimit
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -33,6 +36,12 @@ import io.ktor.server.sessions.clear
 import io.ktor.server.sessions.sessions
 import io.ktor.server.sessions.set
 import kotlin.time.Clock
+
+/**
+ * Largest batch upload body. The largest valid upload ([MAX_CODES_PER_UPLOAD] codes of
+ * [CodeParser.MAX_CODE_LENGTH] characters) is about 1.3 MB of JSON.
+ */
+const val MAX_UPLOAD_BODY_BYTES = 2L * 1024 * 1024
 
 fun Route.adminRoutes(config: ServerConfig, apps: AppRepository, batches: BatchRepository, clock: Clock) {
     val credentials = AdminCredentials(config.adminUsername, config.adminPassword)
@@ -77,7 +86,7 @@ fun Route.adminRoutes(config: ServerConfig, apps: AppRepository, batches: BatchR
 
                 route("/{appId}") {
                     get {
-                        val app = call.parameters["appId"]?.toLongOrNull()?.let(apps::find)
+                        val app = call.parameters["appId"]?.toLongOrNull()?.let { apps.find(it) }
                             ?: return@get call.respondNotFound()
                         call.respond(app.toAdminApp(batches.statsOf(app.id)))
                     }
@@ -91,30 +100,34 @@ fun Route.adminRoutes(config: ServerConfig, apps: AppRepository, batches: BatchR
                     }
 
                     post("/invite-token") {
-                        val app = call.parameters["appId"]?.toLongOrNull()?.let(apps::regenerateInviteToken)
+                        val app = call.parameters["appId"]?.toLongOrNull()?.let { apps.regenerateInviteToken(it) }
                             ?: return@post call.respondNotFound()
                         call.respond(app.toAdminApp(batches.statsOf(app.id)))
                     }
 
                     get("/batches") {
-                        val app = call.parameters["appId"]?.toLongOrNull()?.let(apps::find)
+                        val app = call.parameters["appId"]?.toLongOrNull()?.let { apps.find(it) }
                             ?: return@get call.respondNotFound()
                         call.respond(batches.listWithStats(app.id).map { it.toAdminBatch() })
                     }
 
-                    post("/batches") {
-                        val appId = call.parameters["appId"]?.toLongOrNull() ?: return@post call.respondNotFound()
-                        val request = call.receive<BatchUploadRequest>()
-                        when (val result = batches.upload(appId, request.description, request.expiresAt, request.codes)) {
-                            is UploadResult.Created -> call.respond(
-                                HttpStatusCode.Created,
-                                BatchUploadResponse(
-                                    batch = BatchWithStats(result.batch, Stats(result.addedCount, 0, 0)).toAdminBatch(),
-                                    addedCount = result.addedCount,
-                                    duplicates = result.duplicates,
-                                ),
-                            )
-                            UploadResult.AppNotFound -> call.respondNotFound()
+                    route("/batches") {
+                        // Only the upload may send more than MAX_REQUEST_BODY_BYTES.
+                        install(RequestBodyLimit) { bodyLimit { MAX_UPLOAD_BODY_BYTES } }
+                        post {
+                            val appId = call.parameters["appId"]?.toLongOrNull() ?: return@post call.respondNotFound()
+                            val request = call.receive<BatchUploadRequest>()
+                            when (val result = batches.upload(appId, request.description, request.expiresAt, request.codes)) {
+                                is UploadResult.Created -> call.respond(
+                                    HttpStatusCode.Created,
+                                    BatchUploadResponse(
+                                        batch = BatchWithStats(result.batch, Stats(result.addedCount, 0, 0)).toAdminBatch(),
+                                        addedCount = result.addedCount,
+                                        duplicates = result.duplicates,
+                                    ),
+                                )
+                                UploadResult.AppNotFound -> call.respondNotFound()
+                            }
                         }
                     }
 
@@ -130,7 +143,7 @@ fun Route.adminRoutes(config: ServerConfig, apps: AppRepository, batches: BatchR
     }
 }
 
-private fun BatchRepository.statsOf(appId: Long) = listWithStats(appId).fold(Stats.ZERO) { sum, b -> sum + b.stats }
+private suspend fun BatchRepository.statsOf(appId: Long) = listWithStats(appId).fold(Stats.ZERO) { sum, b -> sum + b.stats }
 
 private fun Stats.toCodeStats() = CodeStats(available, consumed, expired, invalidated)
 

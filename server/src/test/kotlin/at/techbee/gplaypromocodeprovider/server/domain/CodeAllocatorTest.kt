@@ -19,17 +19,17 @@ class CodeAllocatorTest {
     private val batches = BatchRepository(db, clock)
     private val allocator = CodeAllocator(db, clock)
 
-    private val app = apps.create(AppInput.of("Test app", null, null))
+    private val app = runBlocking { apps.create(AppInput.of("Test app", null, null)) }
 
-    private fun upload(codes: List<String>, appId: Long = app.id, expiresIn: kotlin.time.Duration = 30.days): Batch {
+    private suspend fun upload(codes: List<String>, appId: Long = app.id, expiresIn: kotlin.time.Duration = 30.days): Batch {
         val result = batches.upload(appId, null, clock.now() + expiresIn, codes.joinToString("\n"))
         return assertIs<UploadResult.Created>(result).batch
     }
 
-    private fun statsOf(batch: Batch) = batches.listWithStats(batch.appId).single { it.batch.id == batch.id }.stats
+    private suspend fun statsOf(batch: Batch) = batches.listWithStats(batch.appId).single { it.batch.id == batch.id }.stats
 
     @Test
-    fun handOutReturnsACodeAndMarksItConsumed() {
+    fun handOutReturnsACodeAndMarksItConsumed(): Unit = runBlocking {
         val batch = upload(listOf("CODE-1", "CODE-2"))
 
         val result = allocator.handOut(app.id, batch.id)
@@ -40,7 +40,7 @@ class CodeAllocatorTest {
     }
 
     @Test
-    fun handsOutEveryCodeOnceThenNoCodeAvailable() {
+    fun handsOutEveryCodeOnceThenNoCodeAvailable(): Unit = runBlocking {
         val batch = upload(listOf("A", "B", "C"))
 
         val codes = List(3) { assertIs<HandOutResult.Success>(allocator.handOut(app.id, batch.id)).code }
@@ -51,7 +51,7 @@ class CodeAllocatorTest {
     }
 
     @Test
-    fun expiredBatchHandsOutNothing() {
+    fun expiredBatchHandsOutNothing(): Unit = runBlocking {
         val batch = upload(listOf("A", "B"), expiresIn = 1.days)
         clock.advance(1.days)
 
@@ -60,7 +60,7 @@ class CodeAllocatorTest {
     }
 
     @Test
-    fun batchIsUsableUntilJustBeforeItsExpiration() {
+    fun batchIsUsableUntilJustBeforeItsExpiration(): Unit = runBlocking {
         val batch = upload(listOf("A", "B"), expiresIn = 1.days)
         clock.advance(1.days - 1.milliseconds)
 
@@ -71,12 +71,12 @@ class CodeAllocatorTest {
     }
 
     @Test
-    fun unknownBatchIsNotFound() {
+    fun unknownBatchIsNotFound(): Unit = runBlocking {
         assertEquals(HandOutResult.BatchNotFound, allocator.handOut(app.id, 4711))
     }
 
     @Test
-    fun batchOfAnotherAppIsNotFound() {
+    fun batchOfAnotherAppIsNotFound(): Unit = runBlocking {
         val otherApp = apps.create(AppInput.of("Other app", null, null))
         val otherBatch = upload(listOf("OTHER"), appId = otherApp.id)
 
@@ -85,7 +85,7 @@ class CodeAllocatorTest {
     }
 
     @Test
-    fun invalidatedBatchHandsOutNothing() {
+    fun invalidatedBatchHandsOutNothing(): Unit = runBlocking {
         val batch = upload(listOf("A", "B", "C"))
         allocator.handOut(app.id, batch.id)
 
@@ -96,7 +96,7 @@ class CodeAllocatorTest {
     }
 
     @Test
-    fun invalidatingDuringParallelRequestsNeverHandsOutAfterwards() = runBlocking {
+    fun invalidatingDuringParallelRequestsNeverHandsOutAfterwards(): Unit = runBlocking {
         val batch = upload(List(200) { "CODE-$it" })
 
         val requests = List(100) { async(Dispatchers.IO) { allocator.handOut(app.id, batch.id) } }
@@ -111,7 +111,7 @@ class CodeAllocatorTest {
     }
 
     @Test
-    fun parallelRequestsNeverGetTheSameCode() = runBlocking {
+    fun parallelRequestsNeverGetTheSameCode(): Unit = runBlocking {
         val batch = upload(List(50) { "CODE-$it" })
 
         val results = List(100) {
