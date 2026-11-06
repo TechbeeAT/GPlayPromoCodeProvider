@@ -2,6 +2,7 @@ package at.techbee.gplaypromocodeprovider.server.domain
 
 import at.techbee.gplaypromocodeprovider.server.TestClock
 import at.techbee.gplaypromocodeprovider.server.createTestDatabase
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -17,11 +18,11 @@ class BatchRepositoryTest {
     private val batches = BatchRepository(db, clock)
     private val allocator = CodeAllocator(db, clock)
 
-    private val app = apps.create(AppInput.of("Test app", null, null))
+    private val app = runBlocking { apps.create(AppInput.of("Test app", null, null)) }
     private val inAMonth = clock.now() + 30.days
 
     @Test
-    fun uploadStoresTrimmedCodes() {
+    fun uploadStoresTrimmedCodes(): Unit = runBlocking {
         val result = batches.upload(app.id, "  Beta wave 1 ", inAMonth, " A \n\nB\n  \n C")
 
         val created = assertIs<UploadResult.Created>(result)
@@ -34,7 +35,7 @@ class BatchRepositoryTest {
     }
 
     @Test
-    fun uploadSkipsAndReportsDuplicates() {
+    fun uploadSkipsAndReportsDuplicates(): Unit = runBlocking {
         batches.upload(app.id, null, inAMonth, "A\nB")
 
         val result = assertIs<UploadResult.Created>(batches.upload(app.id, null, inAMonth, "B\nC\nC\nD"))
@@ -45,7 +46,7 @@ class BatchRepositoryTest {
     }
 
     @Test
-    fun consumedCodesAlsoCountAsDuplicates() {
+    fun consumedCodesAlsoCountAsDuplicates(): Unit = runBlocking {
         val first = assertIs<UploadResult.Created>(batches.upload(app.id, null, inAMonth, "A"))
         allocator.handOut(app.id, first.batch.id)
 
@@ -54,7 +55,7 @@ class BatchRepositoryTest {
     }
 
     @Test
-    fun sameCodeIsAllowedForDifferentApps() {
+    fun sameCodeIsAllowedForDifferentApps(): Unit = runBlocking {
         val other = apps.create(AppInput.of("Other app", null, null))
         batches.upload(app.id, null, inAMonth, "A")
 
@@ -63,7 +64,7 @@ class BatchRepositoryTest {
     }
 
     @Test
-    fun uploadRejectsInvalidInput() {
+    fun uploadRejectsInvalidInput(): Unit = runBlocking {
         assertFailsWith<ValidationException> { batches.upload(app.id, null, inAMonth, " \n ") }
         assertFailsWith<ValidationException> { batches.upload(app.id, null, clock.now(), "A") }
         assertFailsWith<ValidationException> { batches.upload(app.id, "x".repeat(MAX_DESCRIPTION_LENGTH + 1), inAMonth, "A") }
@@ -71,12 +72,12 @@ class BatchRepositoryTest {
     }
 
     @Test
-    fun uploadForUnknownAppIsRejected() {
+    fun uploadForUnknownAppIsRejected(): Unit = runBlocking {
         assertEquals(UploadResult.AppNotFound, batches.upload(4711, null, inAMonth, "A"))
     }
 
     @Test
-    fun listAvailableHidesEmptyAndExpiredBatches() {
+    fun listAvailableHidesEmptyAndExpiredBatches(): Unit = runBlocking {
         val soon = assertIs<UploadResult.Created>(batches.upload(app.id, "soon", clock.now() + 1.days, "S")).batch
         val later = assertIs<UploadResult.Created>(batches.upload(app.id, "later", inAMonth, "L")).batch
         val empty = assertIs<UploadResult.Created>(batches.upload(app.id, "empty", inAMonth, "E")).batch
@@ -88,7 +89,7 @@ class BatchRepositoryTest {
     }
 
     @Test
-    fun invalidatedBatchIsNoLongerOfferedAndCountsItsCodesAsInvalidated() {
+    fun invalidatedBatchIsNoLongerOfferedAndCountsItsCodesAsInvalidated(): Unit = runBlocking {
         val batch = assertIs<UploadResult.Created>(batches.upload(app.id, null, inAMonth, "A\nB\nC")).batch
         val other = assertIs<UploadResult.Created>(batches.upload(app.id, null, inAMonth, "D")).batch
         allocator.handOut(app.id, batch.id)
@@ -105,7 +106,7 @@ class BatchRepositoryTest {
     }
 
     @Test
-    fun invalidatingAgainKeepsTheFirstTime() {
+    fun invalidatingAgainKeepsTheFirstTime(): Unit = runBlocking {
         val batch = assertIs<UploadResult.Created>(batches.upload(app.id, null, inAMonth, "A")).batch
         val first = assertNotNull(batches.invalidate(app.id, batch.id)).batch.invalidatedAt
         clock.advance(1.days)
@@ -114,7 +115,7 @@ class BatchRepositoryTest {
     }
 
     @Test
-    fun invalidatingAnUnknownBatchOrOneOfAnotherAppFindsNothing() {
+    fun invalidatingAnUnknownBatchOrOneOfAnotherAppFindsNothing(): Unit = runBlocking {
         val other = apps.create(AppInput.of("Other app", null, null))
         val otherBatch = assertIs<UploadResult.Created>(batches.upload(other.id, null, inAMonth, "A")).batch
 
@@ -124,7 +125,7 @@ class BatchRepositoryTest {
     }
 
     @Test
-    fun statsSplitCodesIntoAvailableConsumedAndExpired() {
+    fun statsSplitCodesIntoAvailableConsumedAndExpired(): Unit = runBlocking {
         val expiring = assertIs<UploadResult.Created>(batches.upload(app.id, null, clock.now() + 1.days, "A\nB\nC")).batch
         val running = assertIs<UploadResult.Created>(batches.upload(app.id, null, inAMonth, "D\nE")).batch
         allocator.handOut(app.id, expiring.id)

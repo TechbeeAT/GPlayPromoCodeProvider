@@ -77,7 +77,7 @@ fun Route.adminRoutes(config: ServerConfig, apps: AppRepository, batches: BatchR
 
                 route("/{appId}") {
                     get {
-                        val app = call.parameters["appId"]?.toLongOrNull()?.let(apps::find)
+                        val app = call.parameters["appId"]?.toLongOrNull()?.let { apps.find(it) }
                             ?: return@get call.respondNotFound()
                         call.respond(app.toAdminApp(batches.statsOf(app.id)))
                     }
@@ -91,13 +91,13 @@ fun Route.adminRoutes(config: ServerConfig, apps: AppRepository, batches: BatchR
                     }
 
                     post("/invite-token") {
-                        val app = call.parameters["appId"]?.toLongOrNull()?.let(apps::regenerateInviteToken)
+                        val app = call.parameters["appId"]?.toLongOrNull()?.let { apps.regenerateInviteToken(it) }
                             ?: return@post call.respondNotFound()
                         call.respond(app.toAdminApp(batches.statsOf(app.id)))
                     }
 
                     get("/batches") {
-                        val app = call.parameters["appId"]?.toLongOrNull()?.let(apps::find)
+                        val app = call.parameters["appId"]?.toLongOrNull()?.let { apps.find(it) }
                             ?: return@get call.respondNotFound()
                         call.respond(batches.listWithStats(app.id).map { it.toAdminBatch() })
                     }
@@ -130,7 +130,7 @@ fun Route.adminRoutes(config: ServerConfig, apps: AppRepository, batches: BatchR
     }
 }
 
-private fun BatchRepository.statsOf(appId: Long) = listWithStats(appId).fold(Stats.ZERO) { sum, b -> sum + b.stats }
+private suspend fun BatchRepository.statsOf(appId: Long) = listWithStats(appId).fold(Stats.ZERO) { sum, b -> sum + b.stats }
 
 private fun Stats.toCodeStats() = CodeStats(available, consumed, expired, invalidated)
 
