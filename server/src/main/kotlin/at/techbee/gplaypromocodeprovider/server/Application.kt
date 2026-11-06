@@ -6,6 +6,7 @@ import at.techbee.gplaypromocodeprovider.server.domain.AppRepository
 import at.techbee.gplaypromocodeprovider.server.domain.BatchRepository
 import at.techbee.gplaypromocodeprovider.server.domain.CodeAllocator
 import at.techbee.gplaypromocodeprovider.server.domain.ValidationException
+import at.techbee.gplaypromocodeprovider.server.routes.MAX_UPLOAD_BODY_BYTES
 import at.techbee.gplaypromocodeprovider.server.routes.adminRoutes
 import at.techbee.gplaypromocodeprovider.server.routes.installAdminAuth
 import at.techbee.gplaypromocodeprovider.server.routes.respondNotFound
@@ -16,6 +17,11 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.CannotTransformContentToTypeException
+import io.ktor.server.plugins.ContentTransformationException
+import io.ktor.server.plugins.PayloadTooLargeException
+import io.ktor.server.plugins.UnsupportedMediaTypeException
+import io.ktor.server.plugins.bodylimit.RequestBodyLimit
 import io.ktor.server.plugins.compression.Compression
 import io.ktor.server.plugins.compression.condition
 import io.ktor.server.plugins.compression.gzip
@@ -34,6 +40,9 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.sql.SQLException
 import kotlin.time.Clock
+
+/** Largest request body accepted, except for batch uploads ([MAX_UPLOAD_BODY_BYTES]). */
+const val MAX_REQUEST_BODY_BYTES = 64L * 1024
 
 private val log = LoggerFactory.getLogger("at.techbee.gplaypromocodeprovider.server")
 
@@ -69,6 +78,20 @@ fun Application.module(config: ServerConfig, db: Database, clock: Clock = Clock.
         exception<BadRequestException> { call, _ ->
             call.respond(HttpStatusCode.BadRequest, ErrorResponse(ApiError.INVALID_REQUEST, "Malformed request"))
         }
+        // The body couldn't be read: missing, not JSON, or too large. These aren't BadRequestExceptions;
+        // without their own handlers they'd end up below as 500 with an error log.
+        exception<CannotTransformContentToTypeException> { call, _ ->
+            call.respond(HttpStatusCode.UnsupportedMediaType, ErrorResponse(ApiError.INVALID_REQUEST, "Expected a JSON body"))
+        }
+        exception<UnsupportedMediaTypeException> { call, _ ->
+            call.respond(HttpStatusCode.UnsupportedMediaType, ErrorResponse(ApiError.INVALID_REQUEST, "Expected a JSON body"))
+        }
+        exception<PayloadTooLargeException> { call, _ ->
+            call.respond(HttpStatusCode.PayloadTooLarge, ErrorResponse(ApiError.INVALID_REQUEST, "The request is too large"))
+        }
+        exception<ContentTransformationException> { call, _ ->
+            call.respond(HttpStatusCode.BadRequest, ErrorResponse(ApiError.INVALID_REQUEST, "Malformed request"))
+        }
         exception<Throwable> { call, cause ->
             if (cause is SQLException) {
                 // No message: it can contain the SQL statement including promo codes.
@@ -82,6 +105,10 @@ fun Application.module(config: ServerConfig, db: Database, clock: Clock = Clock.
     installAdminAuth(config, clock)
 
     routing {
+        // Request bodies are read into memory, so their size is capped, also before anyone has logged
+        // in, and a huge body can't exhaust the heap. The batch upload allows more (see adminRoutes).
+        // Installed here, not on the application: Ktor only lets a route override a routing-level install.
+        install(RequestBodyLimit) { bodyLimit { MAX_REQUEST_BODY_BYTES } }
         route("/api") {
             // Used by Fly.io's health check: the server is up and answers requests.
             get("/health") { call.respondText("ok") }

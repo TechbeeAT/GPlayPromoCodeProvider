@@ -23,6 +23,7 @@ dependencies {
     implementation(libs.ktor.server.compression)
     implementation(libs.ktor.server.conditionalHeaders)
     implementation(libs.ktor.server.forwardedHeader)
+    implementation(libs.ktor.server.bodyLimit)
     implementation(libs.ktor.serialization.kotlinxJson)
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
