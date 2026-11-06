@@ -32,8 +32,9 @@ deciding them.
   in `server/.../db/Migrations.kt`, versioned with `PRAGMA user_version`.
 - **Docker** image as the single deployable (`Dockerfile`, `docker-entrypoint.sh`), deployed to **Fly.io**
   (`fly.toml`, one machine, SQLite file on a Fly volume at `/data`)
-- **GitHub Actions** CI (`.github/workflows/ci.yml`): all tests and a Docker build on every PR; optional
-  deployment of `main` to Fly.io
+- **GitHub Actions** CI (`.github/workflows/ci.yml`): all tests and a Docker build on every PR; `main` is
+  published as `ghcr.io/techbeeat/gplaypromocodeprovider`, which `fly.toml` deploys (CI never deploys;
+  Fly.io's builders run out of memory on the web app, so nothing is built there)
 - UI language: English only (no i18n needed)
 - Gradle with Kotlin DSL and a version catalog (`gradle/libs.versions.toml`)
 - Package: `at.techbee.gplaypromocodeprovider`
