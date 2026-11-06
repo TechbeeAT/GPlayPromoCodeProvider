@@ -63,10 +63,10 @@ AVAILABLE ──(user requests code)──────▶ CONSUMED
 | Database | SQLite (one file, stored on a persistent volume in production). |
 | Code upload | Text field, one code per line, multiple codes at once. CSV import may come later. |
 | Which code is handed out | The user picks a batch (app, description, expiry date); any available code of that batch is handed out. |
-| Deployment | One Docker image (Ktor server also serves the web app), deployable to [Fly.io](https://fly.io). One machine with one volume (SQLite), stopped when idle. Details in [Deployment](#deployment). |
+| Deployment | One Docker image (Ktor server also serves the web app), deployable to [Fly.io](https://fly.io). One machine with one volume (SQLite), stopped when idle. The image is built by CI and published on GitHub's container registry; every instance, the owner's included, deploys it the same way with `fly deploy` (Fly.io's builders run out of memory on the web app). Details in [Deployment](#deployment). |
 | Web app in production | The Wasm build with the JS build as fallback (Compose's `composeCompatibilityBrowserDistribution`), served by Ktor from `WEB_DIR`: `index.html` for every path that isn't a file, gzip, `Cache-Control: no-cache`. |
 | Proxy headers | Ktor trusts `X-Forwarded-*` headers (`XForwardedHeaders`), so it knows the browser used HTTPS behind Fly.io's proxy and sends the `Secure` cookie. A client could fake them when talking to the server directly; nothing relies on the client address, so that's harmless now. A future rate limit per client must use Fly.io's `Fly-Client-IP` instead. |
-| CI | GitHub Actions: all tests and a Docker image build on every pull request and push to `main`. Deploying `main` to Fly.io is built in but off until enabled (repository variable `FLY_DEPLOY`). |
+| CI | GitHub Actions: all tests and a Docker image build on every pull request and push to `main`; `main` is published as `ghcr.io/techbeeat/gplaypromocodeprovider`. CI doesn't deploy. |
 | Language | English only. |
 | Build JDK | Java 21, any vendor (Gradle daemon criteria). Not pinned to Azul so cloud AI sessions can use the preinstalled OpenJDK. |
 | API models | Separate KMP module `api` (jvm, js, wasmJs), only kotlinx.serialization. The server doesn't pull in Compose. |
@@ -291,8 +291,8 @@ Fly.io runs Docker images on small virtual machines ("Machines") close to the us
 
 | Setting | Meaning |
 |---------|---------|
-| `app`, `primary_region` | The app's unique name (`gplaypromocodeprovider`, address `https://<app>.fly.dev`) and where it runs (`fra`, Frankfurt) |
-| `[build]` | Build from the `Dockerfile` |
+| `app`, `primary_region` | The app's unique name (address `https://<app>.fly.dev`) and where it runs (`fra`, Frankfurt) |
+| `[build]` | The image to run: `ghcr.io/techbeeat/gplaypromocodeprovider:latest`, published by CI |
 | `[env]` | Non-secret environment variables |
 | `[mounts]` | The volume `data`, mounted at `/data` |
 | `[http_service]` | HTTPS forwarding to port 8080, HTTP redirected to HTTPS, health check on `/api/health`, machine stopped when idle and started on the next request |
@@ -302,12 +302,12 @@ The app runs on **exactly one machine**: a Fly volume belongs to a single machin
 database server several machines could share. Pricing changes; see [fly.io/pricing](https://fly.io/pricing) (a
 512 MB machine that is stopped when idle, plus a 1 GB volume, costs a few dollars a month at most).
 
-**Where the image is built**: not on Fly.io. `fly deploy` normally sends the sources to one of Fly.io's remote
-builders, but compiling the web app (Kotlin/JS and Wasm production builds) needs more memory than they have: the
-build gets killed ("Gradle build daemon disappeared unexpectedly"). So the image is built with Docker elsewhere,
-by CI on a GitHub runner (16 GB) or on your computer, pushed to Fly.io's image registry (`registry.fly.io`), and
-deployed from there with `fly deploy --image`. For the same reason, don't use Fly.io's "deploy from GitHub"
-integration in its dashboard (it builds on Fly.io's builders): CI deploys instead.
+**Where the image comes from**: it is built by this repository's CI on GitHub and published as
+`ghcr.io/techbeeat/gplaypromocodeprovider` (see [CI](#ci)), and `fly.toml` names it (`[build] image`). Fly.io only
+downloads and runs it. It doesn't build anything: compiling the web app (Kotlin/JS and Wasm production builds) needs
+more memory than Fly.io's remote builders have, and the build gets killed ("Gradle build daemon disappeared
+unexpectedly"). So deploying needs no Docker, no Java and no GitHub setup, only `flyctl`, and every instance, the
+project owner's included, is set up with the same steps below.
 
 One-time setup:
 
@@ -318,14 +318,19 @@ One-time setup:
    fly auth login
    ```
 
-2. Create the app (or in the Fly.io dashboard). The name must be unique on Fly.io and match `app` in `fly.toml`:
+2. Get `fly.toml`, the only file the deployment needs: clone this repository (or download just that file) and run
+   the following commands in its directory.
+
+3. Create the app (or in the Fly.io dashboard), with a name that is free on Fly.io, and put that name into
+   `fly.toml` (`app = "..."`):
 
    ```bash
-   fly apps create gplaypromocodeprovider
+   fly apps create <your-app-name>
    ```
 
-3. Create the volume for the SQLite file in the same region as in `fly.toml`. 1 GB is plenty (a million codes are a
-   few dozen MB); it can be extended later with `fly volumes extend`, never shrunk.
+4. Create the volume for the SQLite file in the same region as in `fly.toml` (`primary_region`; change both if you
+   want another region, `fly platform regions` lists them). 1 GB is plenty (a million codes are a few dozen MB); it
+   can be extended later with `fly volumes extend`, never shrunk.
 
    ```bash
    fly volumes create data --region fra --size 1
@@ -334,46 +339,29 @@ One-time setup:
    Fly.io warns that a single volume has no redundancy: if the server's disk fails, the data since the last
    snapshot is lost. That is accepted here; see [Backups](#backups).
 
-4. Set the admin credentials as **secrets**. Fly.io stores them encrypted and passes them to the server as
+5. Set the admin credentials as **secrets**. Fly.io stores them encrypted and passes them to the server as
    environment variables; they never appear in `fly.toml` or the repository. Use a long random password.
 
    ```bash
    fly secrets set ADMIN_USERNAME=admin ADMIN_PASSWORD='<a long random password>'
    ```
 
-5. Deploy, preferably from CI: set it up as in [Deploying from CI](#deploying-from-ci), then on GitHub open
-   *Actions → CI → Run workflow* on `main`. After the tests and the image build, the deploy job builds the image,
-   pushes it to Fly.io and deploys it. Alternatively deploy from your own computer, which needs Docker: log Docker
-   in to Fly.io's registry, build and push the image, and deploy it:
+6. Deploy:
 
    ```bash
-   fly auth docker
+   fly deploy --ha=false
    ```
 
-   ```bash
-   docker build --platform linux/amd64 -t registry.fly.io/gplaypromocodeprovider:manual .
-   ```
+   `--ha=false` makes sure Fly.io creates one machine, not two (its default for high availability). Fly.io downloads
+   the image, starts a machine with the volume, waits for the health check, and assigns the addresses. The app is
+   now at `https://<app>.fly.dev`; the admin UI at `https://<app>.fly.dev/admin`.
 
-   `--platform linux/amd64`: Fly.io machines are x86. On an Apple Silicon Mac, Docker would otherwise build an ARM
-   image, and emulating x86 makes the build much slower. Docker needs enough memory for the build (Docker Desktop:
-   *Settings → Resources*, 8 GB or more).
-
-   ```bash
-   docker push registry.fly.io/gplaypromocodeprovider:manual
-   ```
-
-   ```bash
-   fly deploy --image registry.fly.io/gplaypromocodeprovider:manual --ha=false
-   ```
-
-   `--ha=false` makes sure Fly.io creates one machine, not two (its default for high availability). Fly.io starts a
-   machine with the volume, waits for the health check, and assigns the addresses. The app is now at
-   `https://<app>.fly.dev`; the admin UI at `https://<app>.fly.dev/admin`.
-
-Updating: merge to `main` (CI deploys), or build, push and deploy yourself as above. The machine is replaced by one
-with the new image; the volume, and so the data, stays. A deployment logs the admin out (sessions are kept in
-memory). Useful commands: `fly status` (machine state), `fly logs` (server output), `fly secrets list` (names only),
-`fly ssh console` (a shell in the running machine).
+Updating: run `fly deploy` again; it fetches the newest image (`latest`, i.e. the current `main`). To run a fixed
+version instead, deploy an image tagged with a commit:
+`fly deploy --image ghcr.io/techbeeat/gplaypromocodeprovider:<commit>`.
+The machine is replaced by one with the new image; the volume, and so the data, stays. A deployment logs the admin
+out (sessions are kept in memory). Useful commands: `fly status` (machine state), `fly logs` (server output),
+`fly secrets list` (names only), `fly ssh console` (a shell in the running machine).
 
 **Idle machine**: with `auto_stop_machines = "stop"`, the machine stops after a few minutes without requests and
 starts again on the next one, which then takes a few seconds. That also logs the admin out. To keep it running,
@@ -445,27 +433,17 @@ every pull request and every push to `main`:
   with Java 21 and the runner's Chrome. A failing test fails the run; the test reports are then attached to it.
 - **Build Docker image**: builds the image (without pushing it), so a broken `Dockerfile` shows up in the pull
   request and not only when deploying.
-- **Deploy to Fly.io** (optional, off by default): after both jobs passed on `main`, builds the image on the runner
-  (reusing the cached layers of the image build), pushes it to `registry.fly.io/gplaypromocodeprovider:<commit>` and
-  deploys it (`flyctl deploy --image ... --ha=false`).
+- **Publish Docker image**: after both jobs passed on `main`, builds the image again (from the cached layers, so
+  quickly) and pushes it to GitHub's container registry as `ghcr.io/techbeeat/gplaypromocodeprovider:latest` and
+  `...:<commit>`. The run's own GitHub token may do that, so there is no secret to set up. Forks don't publish.
+  CI never deploys: Fly.io instances fetch the image with `fly deploy` (see [Deploying to Fly.io](#deploying-to-flyio)).
 
 The workflow also has a *Run workflow* button (Actions tab, `workflow_dispatch`): it runs the same jobs for a branch
-without a new commit, and deploys when run on `main`.
+without a new commit, and publishes when run on `main`.
 
-### Deploying from CI
-
-1. Create a deploy token, which can only deploy this app:
-
-   ```bash
-   fly tokens create deploy --expiry 8760h
-   ```
-
-2. In the GitHub repository, under *Settings → Secrets and variables → Actions*: add the token as the **secret**
-   `FLY_API_TOKEN`, and add the **variable** `FLY_DEPLOY` with the value `true`.
-
-From then on every merge to `main` is deployed; *Actions → CI → Run workflow* on `main` deploys right away. The token
-expires after a year (`8760h`); create a new one then.
-Remove the variable (or set it to anything else) to stop deploying from CI.
+**Package visibility** (once, by the repository owner): the image must be public so that anyone can deploy it. After
+the first publish, check on GitHub under the organization's *Packages → gplaypromocodeprovider → Package settings*
+that its visibility is *Public*, and change it if not.
 
 ---
 
