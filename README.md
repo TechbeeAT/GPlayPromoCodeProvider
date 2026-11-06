@@ -96,7 +96,8 @@ AVAILABLE ──(user requests code)──────▶ CONSUMED
 | Build JDK | Java 21, any vendor (Gradle daemon criteria). Not pinned to Azul so cloud AI sessions can use the preinstalled OpenJDK. |
 | API models | Separate KMP module `api` (jvm, js, wasmJs), only kotlinx.serialization. The server doesn't pull in Compose. |
 | Admin login | `POST /api/admin/login` with username and password. On success the server creates a session (kept in memory, 12 hours) and sets a random session id as an `HttpOnly`, `SameSite=Strict` cookie (also `Secure` unless `COOKIE_SECURE=false`). Logout ends the session. A server restart logs the admin out. |
-| Database access | [Exposed](https://www.jetbrains.com/exposed/) DSL on the SQLite JDBC driver. Migrations are plain SQL versioned with `PRAGMA user_version` (no extra migration library). Timestamps are stored as UTC epoch milliseconds. |
+| Database access | [Exposed](https://www.jetbrains.com/exposed/) DSL on the SQLite JDBC driver. Migrations are plain SQL versioned with `PRAGMA user_version` (no extra migration library). Timestamps are stored as UTC epoch milliseconds. The repositories' functions are `suspend` and run their transaction on `Dispatchers.IO` (`db.query { }`): JDBC blocks, and the server has only one or two request threads on a small machine, which also answer the health check. |
+| Request bodies | Capped at 64 KB, 2 MB for a batch upload (the largest valid upload is about 1.3 MB), with Ktor's `RequestBodyLimit`. Bodies are read into memory, and login is open to anyone, so without a cap one huge request could exhaust the heap. |
 | Atomic hand-out | One SQL statement: `UPDATE promo_code SET consumed_at = ? WHERE consumed_at IS NULL AND id = (SELECT … LIMIT 1) RETURNING code`. Transactions use `BEGIN IMMEDIATE` and a busy timeout, so concurrent writers queue up instead of failing. |
 | Expiry | A batch's `expiresAt` is an exact instant (UTC). From that instant on, its remaining codes count as expired. In the admin UI the admin picks a day; the codes are valid until the end of that day (23:59:59) in the admin's browser time zone. |
 | API client | `ApiClient` in `shared` (package `client`), on the Ktor client with the browser's `fetch` for JS and Wasm. Every call returns an `ApiResult` (`Success`, `Failure` with status and `ApiError`, `NetworkError`) instead of throwing, so the UI has to handle each case. JSON is parsed leniently (`ignoreUnknownKeys`, `coerceInputValues`), so an older web app keeps working against a newer server. Path segments are encoded including `/`, so an invite token can't change the request path. `webApp/main.kt` creates one client for the page's lifetime and passes it to `App`; it is never closed. On the `jvm` target (previews, tests) there is no default engine, so one must be passed. |
@@ -152,6 +153,9 @@ page), the client derives the code from the status (`400`, `401`, `404`, `5xx`; 
 proxy), so the web app treats it as a network error: "The server can't be reached". For a code request that is not the
 whole truth: a `504` can come after the server handed out the code. The invite page then says the server didn't answer
 and that a code may have been handed out without reaching the user (it is lost; the user can request another one).
+
+A request body that can't be read gets `invalid_request` with `400` (malformed JSON), `415` (missing, or not
+`application/json`) or `413` (larger than 64 KB, 2 MB for a batch upload).
 
 User endpoints (scoped by the invite token; an unknown token, an unknown batch and a batch of another
 app all give the same `404`):
@@ -501,6 +505,10 @@ every pull request and every push to `main`:
   `...:<commit>`. The run's own GitHub token may do that, so there is no secret to set up. Forks don't publish.
   CI never deploys: Fly.io instances fetch the image with `fly deploy` (see [Deploying to Fly.io](#deploying-to-flyio)).
 
+The publish job's actions are pinned to commits (`docker/login-action@<commit> # v3.7.0`), not to tags like `@v3`:
+it may write to the registry every instance deploys from, and a tag can be moved to other code. To update one, take
+the commit of a newer release from the action's releases page. The other jobs can't publish anything and use tags.
+
 The workflow also has a *Run workflow* button (Actions tab, `workflow_dispatch`): it runs the same jobs for a branch
 without a new commit, and publishes when run on `main`.
 
@@ -537,6 +545,14 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
   `RUN find /app/web -name '*.map' -delete` in the runtime stage would drop them, e.g. if the repository becomes private.
 - **Suggestion**: rate-limit `POST /api/admin/login` (Ktor `RateLimit` plugin) against password guessing, keyed by Fly.io's `Fly-Client-IP` (`X-Forwarded-For` can be faked).
   The invite endpoints could be rate-limited too.
+- **Open from the code review after step #7** (fixed there: unreadable bodies answered `500`, blocking database
+  calls on request threads, no body size limit, unpinned actions in the publish job):
+  - Logging out while a page request answers `401` keeps the page's state (e.g. pasted codes) for the next login,
+    because the session then counts as expired instead of logged out.
+  - Code parsing trims whitespace only. A byte order mark or zero-width space from a CSV or spreadsheet stays in the
+    code, which then doesn't redeem and doesn't match the same code without it as a duplicate.
+  - The app page computes its statistics twice per load (`GET /apps/{id}` and `GET /apps/{id}/batches`).
+  - Every transaction opens a new SQLite connection; a small connection pool would reuse them.
 - **Accepted for now** (decided after step #5, no action planned):
   - Received codes are lost when the user reloads or closes the invite page (the page says so). Keeping them in
     the browser's `localStorage` per invite token would make that safer.

@@ -135,6 +135,9 @@ it unless `.dockerignore` excludes them).
   (`Failure` by its `ApiError`, `NetworkError`); the client never throws except on cancellation.
 - Keep business logic (code allocation, validation) out of Ktor routes and Compose UI, in plain
   classes that can be unit tested (server: package `server.domain`; routes only map HTTP to it).
+- Server database access goes through `db.query { }` (`server/.../db/Query.kt`): a transaction on `Dispatchers.IO`,
+  so blocking JDBC never runs on a request thread. Repository functions are therefore `suspend`; tests call them in
+  `runBlocking`.
 - Inject `kotlin.time.Clock` wherever "now" matters, so tests can control time.
 - Never install Ktor's `CallLogging` or log request paths: they contain invite tokens. The
   `Exposed` logger is off because it logs statement values (codes). Don't log exception messages of
@@ -144,6 +147,8 @@ it unless `.dockerignore` excludes them).
   including a concurrency test for rule 1.
 - Use `kotlinx-datetime` / `kotlin.time.Instant` for timestamps and store them in UTC.
 - Add dependencies through `gradle/libs.versions.toml`, not as inline version strings.
+- In CI jobs that can publish or deploy (write permissions, secrets), pin actions to a commit with the version in a
+  comment (`uses: owner/action@<sha> # v1.2.3`), not to a tag or branch.
 - Follow the official Kotlin code style (`kotlin.code.style=official`).
 - Keep commits small and focused, with descriptive messages.
 
