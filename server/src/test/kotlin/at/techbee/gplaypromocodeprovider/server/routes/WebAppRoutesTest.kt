@@ -17,6 +17,7 @@ import java.io.File
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -48,7 +49,27 @@ class WebAppRoutesTest {
             val response = client.get(path)
             assertEquals(HttpStatusCode.OK, response.status, path)
             assertEquals("<html>index</html>", response.bodyAsText(), path)
+            assertEquals("no-cache", response.headers[HttpHeaders.CacheControl], path)
         }
+    }
+
+    @Test
+    fun missingFilesGetNotFoundInsteadOfIndexHtml() = webTest {
+        for (path in listOf("/webApp.js.map", "/missing.wasm", "/invite/x/old-chunk.js")) {
+            val response = client.get(path)
+            assertEquals(HttpStatusCode.NotFound, response.status, path)
+            assertTrue("index" !in response.bodyAsText(), path)
+        }
+    }
+
+    @Test
+    fun invitePathsAreNeverTakenForFiles() {
+        // Invite tokens are URL-safe Base64 (letters, digits, '-' and '_'): no dot, so never a "file".
+        assertFalse(looksLikeFile("/invite/Ab-3_xYz09"))
+        assertFalse(looksLikeFile("/admin/apps/12"))
+        assertFalse(looksLikeFile("/"))
+        assertTrue(looksLikeFile("/webApp.js.map"))
+        assertTrue(looksLikeFile("/composeResources/font.ttf"))
     }
 
     @Test

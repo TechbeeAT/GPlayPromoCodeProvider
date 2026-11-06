@@ -307,8 +307,9 @@ volume is storage that lives outside the container and is mounted into it at `/d
 <summary>How the server serves the web app</summary>
 
 With `WEB_DIR` set, the server answers every path outside `/api` from that directory. Paths without a file
-(`/invite/<token>`, `/admin/apps/1`) get `index.html`, so links and page reloads work. Unknown `/api` paths get the
-API's JSON `404`. `index.html` has `<base href="/">`: the production build's loader and webpack chunks load further
+(`/invite/<token>`, `/admin/apps/1`) get `index.html`, so links and page reloads work. A missing *file*, i.e. a path whose
+last segment has an extension (`/webApp.js.map`), gets a plain `404` instead of `index.html`, so a browser never
+tries to read HTML as a script or Wasm file. Unknown `/api` paths get the API's JSON `404`. `index.html` has `<base href="/">`: the production build's loader and webpack chunks load further
 files with relative URLs, which on `/invite/<token>` would otherwise point to `/invite/originWasmWebApp.js` and get
 `index.html` instead of the script. The files are sent gzip-compressed (API responses are not: they contain secrets, and compressing
 secrets together with attacker-controlled data can leak them, see BREACH) with `Cache-Control: no-cache`, so a
