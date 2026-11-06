@@ -17,7 +17,9 @@ beta testers. It works for any app.
   Play is out of scope.
 
 The full specification, decisions and roadmap are in [README.md](./README.md). Keep the README in
-sync when a requirement changes or a new decision is made.
+sync when a requirement changes or a new decision is made. The README starts with a table of contents (update it when
+adding or renaming a section) and collapses reference sections into `<details>` blocks below their
+heading, so the anchor links keep working.
 
 The project is built step by step and also serves as a showcase for AI-assisted development. Work in
 small, reviewable increments, and point out possible improvements to the owner instead of silently
