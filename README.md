@@ -12,6 +12,28 @@ batch and marks it as consumed. It works for **any** app: nothing is tied to a s
 
 ---
 
+## Contents
+
+- [Features](#features)
+  - [For users](#for-users) · [For admins](#for-admins) · [Code lifecycle](#code-lifecycle) · [Decisions](#decisions)
+- [Architecture](#architecture)
+  - [Domain model](#domain-model) · [REST API](#rest-api)
+- [Project structure](#project-structure)
+- [Running the app](#running-the-app)
+- [Running tests](#running-tests)
+- [Deployment](#deployment)
+  - [What's in the image](#whats-in-the-image) · [Serving the web app](#serving-the-web-app) ·
+    [Running the image locally](#running-the-image-locally) · [Deploying to Fly.io](#deploying-to-flyio) ·
+    [Custom domain and HTTPS](#custom-domain-and-https) · [Backups](#backups)
+- [CI](#ci)
+- [Roadmap](#roadmap)
+  - [Follow-ups and open points](#follow-ups-and-open-points)
+
+Reference sections (decisions, API, internals, follow-ups) are collapsed under their heading; click the summary line
+to expand them.
+
+---
+
 ## Features
 
 ### For users
@@ -55,6 +77,9 @@ AVAILABLE ──(user requests code)──────▶ CONSUMED
 
 ### Decisions
 
+<details>
+<summary>All decisions (table)</summary>
+
 | Topic | Decision |
 |-------|----------|
 | User access | One secret invite link per app. No user accounts. |
@@ -85,6 +110,8 @@ AVAILABLE ──(user requests code)──────▶ CONSUMED
 | Invalidating a batch | Per batch, not per code: the admin invalidates a whole batch with "Invalidate…" on the app page, after a confirmation. The batch gets an `invalidatedAt` timestamp; its codes that weren't handed out count as *invalidated* (not expired, also once the batch's expiry has passed) and are never handed out. Codes already handed out stay *consumed*. Users no longer see the batch; a code request for it answers `409 no_code_available`, like a batch that ran out. It can't be undone, and invalidating again keeps the first timestamp. Invalidating and handing out run in write transactions (`BEGIN IMMEDIATE`), so a code is either handed out before the invalidation or never. |
 | Upload rules | Codes are unique per app (the same code may exist in two different apps). Duplicates, against existing codes of the app or within the upload, are skipped and returned to the admin. An upload with no new code, an expiry date in the past, or a code longer than 128 characters is rejected. At most 10,000 codes per upload. |
 
+</details>
+
 ---
 
 ## Architecture
@@ -99,13 +126,21 @@ AVAILABLE ──(user requests code)──────▶ CONSUMED
 
 ### Domain model
 
+<details>
+<summary>Entities and fields</summary>
+
 - **App**: `id`, `name`, `packageName?`, `description?`, `inviteToken` (unique, 32 random bytes, URL-safe Base64, regenerable), `createdAt`
 - **CodeBatch**: `id`, `appId`, `description?`, `expiresAt`, `createdAt`, `invalidatedAt?` (null while valid)
 - **PromoCode**: `id`, `appId`, `batchId`, `code` (unique per app), `consumedAt?` (null while available;
   this replaces the separate `status` column of the first draft). "Expired" and "invalidated" are not
   stored per code: they follow from the batch's `expiresAt` and `invalidatedAt`.
 
+</details>
+
 ### REST API
+
+<details>
+<summary>Endpoints, errors and status codes</summary>
 
 All bodies are JSON; the models are in [`api`](./api/src/commonMain/kotlin/at/techbee/gplaypromocodeprovider/api).
 Errors are `{"error": "<code>", "message": "..."}`, where `error` is the `ApiError` enum
@@ -144,9 +179,14 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
 | `POST /api/admin/apps/{appId}/batches` | `201`, `BatchUploadResponse` (new batch, number of added codes, skipped duplicates) |
 | `POST /api/admin/apps/{appId}/batches/{batchId}/invalidate` | the invalidated `AdminBatch` with its statistics; `404` for an unknown batch or one of another app |
 
+</details>
+
 ---
 
 ## Project structure
+
+<details>
+<summary>Modules and folders</summary>
 
 - [`/api`](./api/src/commonMain/kotlin): the REST API models, shared by server and web app.
 - [`/shared`](./shared/src): code shared by the Compose Multiplatform apps (UI, view models).
@@ -169,6 +209,8 @@ Admin endpoints (all except login and logout need the session cookie, otherwise 
 - [`Dockerfile`](./Dockerfile), [`docker-entrypoint.sh`](./docker-entrypoint.sh), [`.dockerignore`](./.dockerignore):
   the Docker image; [`fly.toml`](./fly.toml): the Fly.io configuration (see [Deployment](#deployment)).
 - [`.github/workflows/ci.yml`](./.github/workflows/ci.yml): CI (see [CI](#ci)).
+
+</details>
 
 ---
 
@@ -227,6 +269,9 @@ anywhere Docker runs; this guide deploys it to [Fly.io](https://fly.io).
 
 ### What's in the image
 
+<details>
+<summary>Dockerfile stages, volumes and configuration</summary>
+
 A Docker image is a packaged file system plus a start command. A container is a running instance of it. The
 [`Dockerfile`](./Dockerfile) builds the image in two stages:
 
@@ -254,7 +299,12 @@ volume is storage that lives outside the container and is mounted into it at `/d
 `PORT=8080`, `DATABASE_PATH=/data/gplaypromocodeprovider.db` and `WEB_DIR=/app/web`; `ADMIN_USERNAME` and
 `ADMIN_PASSWORD` are passed at start. `JAVA_OPTS` holds the JVM options (heap: 60% of the container's memory).
 
+</details>
+
 ### Serving the web app
+
+<details>
+<summary>How the server serves the web app</summary>
 
 With `WEB_DIR` set, the server answers every path outside `/api` from that directory. Paths without a file
 (`/invite/<token>`, `/admin/apps/1`) get `index.html`, so links and page reloads work. Unknown `/api` paths get the
@@ -264,6 +314,8 @@ files with relative URLs, which on `/invite/<token>` would otherwise point to `/
 secrets together with attacker-controlled data can leak them, see BREACH) with `Cache-Control: no-cache`, so a
 browser always asks whether its copy is still current (`304 Not Modified` if so) and picks up a new release right
 away. `GET /api/health` answers `ok`, for Fly.io's health check.
+
+</details>
 
 ### Running the image locally
 
@@ -369,6 +421,9 @@ set `auto_stop_machines = "off"` and `min_machines_running = 1` in `fly.toml`.
 
 ### Custom domain and HTTPS
 
+<details>
+<summary>Setting up an own domain</summary>
+
 `https://<app>.fly.dev` has HTTPS out of the box. For an own domain, e.g. `codes.example.com`:
 
 1. Tell Fly.io about it; it then requests a certificate from Let's Encrypt and renews it automatically:
@@ -385,7 +440,12 @@ set `auto_stop_machines = "off"` and `min_machines_running = 1` in `fly.toml`.
 Invite links are built from the address the admin UI is opened with, so open the admin UI with the custom domain
 before copying links.
 
+</details>
+
 ### Backups
+
+<details>
+<summary>Snapshots, own copies and restoring</summary>
 
 The database is one file, `/data/gplaypromocodeprovider.db`, on the volume. It contains all codes and invite
 tokens, so treat every copy as a secret.
@@ -423,6 +483,8 @@ tokens, so treat every copy as a secret.
   ```
 
   Then delete `/data/restore.db` like the backup above.
+
+</details>
 
 ## CI
 
@@ -462,6 +524,9 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
 
 ### Follow-ups and open points
 
+<details>
+<summary>Suggestions, decisions and notes</summary>
+
 - **Not tested yet**: the Fly.io deployment itself (step #7 was built and tested locally with Docker, without a Fly.io
   account). The first real deployment should follow [the guide](#deploying-to-flyio) and fix whatever doesn't match.
 - **Suggestion**: admin sessions are kept in memory, so a deployment and every idle stop of the Fly.io machine log the
@@ -496,6 +561,8 @@ Each step is one GitHub issue, one AI conversation and one pull request (see [CL
   that they match (the tests only catch mismatches in columns they use). Fine at three tables; migration 2
   (`code_batch.invalidated_at`) was the first schema change and is covered by tests. If the schema keeps changing, consider a schema check test (Exposed's
   `exposed-migration` module) or switching to SQLDelight, whose compiler checks queries and migrations.
+
+</details>
 
 ---
 
